@@ -1,0 +1,18 @@
+# Backend
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+.pytest_cache/
+
+# Frontend
+node_modules/
+.angular/
+dist/
+.env
+
+*.swp
+*.swo
+
+.env/
