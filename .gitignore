@@ -16,3 +16,8 @@ dist/
 *.swo
 
 .env/
+
+# personal
+tests/
+project-plans/
+
