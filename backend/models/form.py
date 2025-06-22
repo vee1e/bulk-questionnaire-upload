@@ -1,9 +1,21 @@
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 
+class SheetValidation(BaseModel):
+    name: str
+    exists: bool
+    columns: List[str]
+    required_columns: List[str]
+    missing_columns: List[str]
+    row_count: int
+
 class FormValidation(BaseModel):
     valid: bool
     message: str
+    sheets: Optional[List[SheetValidation]] = None
+    form_metadata: Optional[Dict[str, Any]] = None
+    questions_count: Optional[int] = None
+    options_count: Optional[int] = None
 
 class Question(BaseModel):
     type: str

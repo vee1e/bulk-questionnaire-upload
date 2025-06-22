@@ -98,6 +98,22 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
         margin: 1rem 0;
         color: rgba(255, 255, 255, 0.6);
       }
+
+      button {
+        border: 2px solid;
+        border-radius: 8px;
+        padding: 8px 16px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        background-color: #3f51b5;
+        border-color: #3f51b5;
+        color: white;
+
+        &:hover {
+          background-color: #303f9f;
+          border-color: #303f9f;
+        }
+      }
     }
 
     .upload-progress {

@@ -1,6 +1,19 @@
+export interface SheetValidation {
+  name: string;
+  exists: boolean;
+  columns: string[];
+  required_columns: string[];
+  missing_columns: string[];
+  row_count: number;
+}
+
 export interface FormValidation {
   valid: boolean;
   message: string;
+  sheets?: SheetValidation[];
+  form_metadata?: { [key: string]: any };
+  questions_count?: number;
+  options_count?: number;
 }
 
 export interface Choice {
