@@ -39,15 +39,16 @@ import { MatIconModule } from '@angular/material/icon';
 
     .search-field {
       width: 100%;
-      
+
       ::ng-deep {
         .mat-mdc-form-field-flex {
-          background: rgba(255, 255, 255, 0.1);
+          background: rgba(255, 255, 255, 0.04);
           border-radius: 8px;
         }
 
         .mat-mdc-text-field-wrapper {
           background: transparent;
+          padding: 0;
         }
 
         .mat-mdc-form-field-outline {
@@ -72,12 +73,12 @@ import { MatIconModule } from '@angular/material/icon';
 export class SearchComponent {
   searchQuery = '';
 
-  onSearch() {
-    console.log('Searching for:', this.searchQuery);
+  onSearch(): void {
+    // TODO: Implement search functionality
   }
 
-  clearSearch() {
+  clearSearch(): void {
     this.searchQuery = '';
     this.onSearch();
   }
-} 
+}

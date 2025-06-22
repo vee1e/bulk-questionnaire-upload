@@ -52,4 +52,4 @@ export interface ParsedForm {
   version: string;
   groups: FormGroup[];
   settings?: { [key: string]: string };
-} 
+}

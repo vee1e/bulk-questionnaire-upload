@@ -6,22 +6,22 @@ import logging
 logger = logging.getLogger(__name__)
 
 class DatabaseService:
-    
+
     async def save_form(self, form_data: Dict[str, Any]) -> str:
         """Save form metadata to database"""
         try:
             if 'id' in form_data:
                 del form_data['id']
-            
+
             form_data['_id'] = ObjectId()
-            
+
             result = await forms_collection.insert_one(form_data)
             logger.info(f"Form saved with ID: {result.inserted_id}")
             return str(result.inserted_id)
         except Exception as e:
             logger.error(f"Error saving form: {e}")
             raise e
-    
+
     async def save_questions(self, questions: List[Dict[str, Any]], form_id: str) -> List[str]:
         """Save questions to database"""
         try:
@@ -29,16 +29,16 @@ class DatabaseService:
             for question in questions:
                 question['form_id'] = form_id
                 question['_id'] = ObjectId()
-                
+
                 result = await questions_collection.insert_one(question)
                 question_ids.append(str(result.inserted_id))
-            
+
             logger.info(f"Saved {len(questions)} questions for form {form_id}")
             return question_ids
         except Exception as e:
             logger.error(f"Error saving questions: {e}")
             raise e
-    
+
     async def save_options(self, options: List[Dict[str, Any]], form_id: str) -> List[str]:
         """Save answer options to database"""
         try:
@@ -46,16 +46,16 @@ class DatabaseService:
             for option in options:
                 option['form_id'] = form_id
                 option['_id'] = ObjectId()
-                
+
                 result = await options_collection.insert_one(option)
                 option_ids.append(str(result.inserted_id))
-            
+
             logger.info(f"Saved {len(options)} options for form {form_id}")
             return option_ids
         except Exception as e:
             logger.error(f"Error saving options: {e}")
             raise e
-    
+
     async def get_form_by_id(self, form_id: str) -> Optional[Dict[str, Any]]:
         """Get form by ID"""
         try:
@@ -67,7 +67,7 @@ class DatabaseService:
         except Exception as e:
             logger.error(f"Error getting form: {e}")
             return None
-    
+
     async def get_questions_by_form_id(self, form_id: str) -> List[Dict[str, Any]]:
         """Get all questions for a form"""
         try:
@@ -79,7 +79,7 @@ class DatabaseService:
         except Exception as e:
             logger.error(f"Error getting questions: {e}")
             return []
-    
+
     async def get_options_by_form_id(self, form_id: str) -> List[Dict[str, Any]]:
         """Get all options for a form"""
         try:
@@ -91,7 +91,7 @@ class DatabaseService:
         except Exception as e:
             logger.error(f"Error getting options: {e}")
             return []
-    
+
     async def get_all_forms(self) -> List[Dict[str, Any]]:
         """Get all forms"""
         try:
@@ -103,16 +103,16 @@ class DatabaseService:
         except Exception as e:
             logger.error(f"Error getting all forms: {e}")
             return []
-    
+
     async def delete_form(self, form_id: str) -> bool:
         """Delete form and all related data"""
         try:
             form_result = await forms_collection.delete_one({"_id": ObjectId(form_id)})
-            
+
             questions_result = await questions_collection.delete_many({"form_id": form_id})
-            
+
             options_result = await options_collection.delete_many({"form_id": form_id})
-            
+
             logger.info(f"Deleted form {form_id} with {questions_result.deleted_count} questions and {options_result.deleted_count} options")
             return form_result.deleted_count > 0
         except Exception as e:

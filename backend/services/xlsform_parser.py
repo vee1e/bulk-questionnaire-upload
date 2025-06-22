@@ -20,17 +20,17 @@ class XLSFormParser:
     async def validate_file(self, file: UploadFile) -> Dict[str, Any]:
         try:
             df_dict = pd.read_excel(file.file, sheet_name=None)
-            
+
             sheets_validation = []
             form_metadata = {}
             questions_count = 0
             options_count = 0
-            
+
             forms_validation = self._validate_sheet(
                 df_dict, 'Forms', self.REQUIRED_FORMS_COLUMNS
             )
             sheets_validation.append(forms_validation)
-            
+
             if forms_validation['exists'] and not forms_validation['missing_columns']:
                 forms_df = df_dict['Forms']
                 if not forms_df.empty:
@@ -38,27 +38,27 @@ class XLSFormParser:
                         'language': forms_df.iloc[0].get('Language', 'Unknown'),
                         'title': forms_df.iloc[0].get('Title', 'Untitled')
                     }
-            
+
             questions_validation = self._validate_sheet(
                 df_dict, 'Questions Info', self.REQUIRED_QUESTIONS_COLUMNS
             )
             sheets_validation.append(questions_validation)
-            
+
             if questions_validation['exists'] and not questions_validation['missing_columns']:
                 questions_df = df_dict['Questions Info']
                 questions_count = len(questions_df)
-            
+
             options_validation = self._validate_sheet(
                 df_dict, 'Answer Options', self.REQUIRED_OPTIONS_COLUMNS
             )
             sheets_validation.append(options_validation)
-            
+
             if options_validation['exists'] and not options_validation['missing_columns']:
                 options_df = df_dict['Answer Options']
                 options_count = len(options_df)
-            
+
             is_valid = all(sheet['exists'] and not sheet['missing_columns'] for sheet in sheets_validation)
-            
+
             return {
                 'valid': is_valid,
                 'message': "File format is valid." if is_valid else "Invalid XLSForm structure.",
@@ -86,7 +86,7 @@ class XLSFormParser:
         columns = list(df_dict[sheet_name].columns) if exists else []
         missing_columns = [col for col in required_columns if col not in columns]
         row_count = len(df_dict[sheet_name]) if exists else 0
-        
+
         return {
             'name': sheet_name,
             'exists': exists,
@@ -105,12 +105,12 @@ class XLSFormParser:
             options_df = df_dict['Answer Options']
 
             form_metadata = self._parse_form_metadata(forms_df)
-            
+
             form_id = await self.db_service.save_form(form_metadata)
-            
+
             questions_data = self._parse_questions_data(questions_df)
             question_ids = await self.db_service.save_questions(questions_data, form_id)
-            
+
             options_data = self._parse_options_data(options_df)
             option_ids = await self.db_service.save_options(options_data, form_id)
 
@@ -146,19 +146,19 @@ class XLSFormParser:
             'version': '1.0.0',
             'created_at': pd.Timestamp.now().isoformat()
         }
-        
+
         if not forms_df.empty:
             if 'Language' in forms_df.columns:
                 metadata['language'] = forms_df.iloc[0]['Language']
             if 'Title' in forms_df.columns:
                 metadata['title'] = forms_df.iloc[0]['Title']
-        
+
         return metadata
 
     def _parse_questions_data(self, questions_df: pd.DataFrame) -> List[Dict[str, Any]]:
         """Parse questions data for database storage"""
         questions_data = []
-        
+
         for _, row in questions_df.iterrows():
             question_data = {
                 'order': int(row['Order']),
@@ -168,13 +168,13 @@ class XLSFormParser:
                 'created_at': pd.Timestamp.now().isoformat()
             }
             questions_data.append(question_data)
-        
+
         return questions_data
 
     def _parse_options_data(self, options_df: pd.DataFrame) -> List[Dict[str, Any]]:
         """Parse options data for database storage"""
         options_data = []
-        
+
         for _, row in options_df.iterrows():
             option_data = {
                 'order': int(row['Order']),
@@ -183,7 +183,7 @@ class XLSFormParser:
                 'created_at': pd.Timestamp.now().isoformat()
             }
             options_data.append(option_data)
-        
+
         return options_data
 
     def _get_form_title(self, forms_df: pd.DataFrame) -> Dict[str, str]:

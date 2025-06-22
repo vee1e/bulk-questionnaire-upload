@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { FormValidation, ParsedForm } from '../models/form.model';
+import { FormValidation } from '../models/form.model';
 
 export interface FormData {
   id: string;
@@ -47,7 +47,7 @@ export interface FormsResponse {
   providedIn: 'root'
 })
 export class FormService {
-  private apiUrl = 'http://localhost:8000/api';
+  private readonly apiUrl = 'http://localhost:8000/api';
 
   constructor(private http: HttpClient) { }
 
@@ -57,10 +57,10 @@ export class FormService {
     return this.http.post<FormValidation>(`${this.apiUrl}/validate`, formData);
   }
 
-  uploadFile(file: File): Observable<ParsedForm> {
+  uploadFile(file: File): Observable<FormDetails> {
     const formData = new FormData();
     formData.append('file', file);
-    return this.http.post<ParsedForm>(`${this.apiUrl}/upload`, formData);
+    return this.http.post<FormDetails>(`${this.apiUrl}/upload`, formData);
   }
 
   getAllForms(): Observable<FormsResponse> {
@@ -74,4 +74,4 @@ export class FormService {
   deleteForm(formId: string): Observable<{ message: string }> {
     return this.http.delete<{ message: string }>(`${this.apiUrl}/forms/${formId}`);
   }
-} 
+}
