@@ -73,7 +73,6 @@ export class SearchComponent {
   searchQuery = '';
 
   onSearch() {
-    // Implement search logic
     console.log('Searching for:', this.searchQuery);
   }
 

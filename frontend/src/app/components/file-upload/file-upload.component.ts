@@ -24,7 +24,6 @@ import { FormValidation, ParsedForm } from '../../models/form.model';
             <p class="status">Status: {{ validationResult.valid ? 'Valid' : 'Invalid' }}</p>
             <p class="message">{{ validationResult.message }}</p>
             
-            <!-- Form Metadata -->
             <div *ngIf="validationResult.form_metadata" class="metadata-section">
               <h4>Form Metadata</h4>
               <div class="metadata-grid">
@@ -37,7 +36,6 @@ import { FormValidation, ParsedForm } from '../../models/form.model';
               </div>
             </div>
 
-            <!-- Statistics -->
             <div class="stats-section">
               <h4>File Statistics</h4>
               <div class="stats-grid">
@@ -50,7 +48,6 @@ import { FormValidation, ParsedForm } from '../../models/form.model';
               </div>
             </div>
 
-            <!-- Sheet Details -->
             <div *ngIf="validationResult.sheets && validationResult.sheets.length > 0" class="sheets-section">
               <h4>Sheet Details</h4>
               <div class="sheets-grid">
@@ -324,7 +321,6 @@ export class FileUploadComponent {
     const input = event.target as HTMLInputElement;
     if (input.files?.length) {
       this.selectedFile = input.files[0];
-      // Reset previous results when a new file is selected
       this.validationResult = null;
       this.parsedForm = null;
     }
