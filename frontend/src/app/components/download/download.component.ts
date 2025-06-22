@@ -1,10 +1,11 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
+import { FormService, FormData, FormDetails } from '../../services/form.service';
 
 @Component({
   selector: 'app-download',
@@ -22,7 +23,7 @@ import { MatDividerModule } from '@angular/material/divider';
       <mat-card-header>
         <mat-icon mat-card-avatar>download</mat-icon>
         <mat-card-title>Parsed Forms</mat-card-title>
-        <mat-card-subtitle>Download or preview parsed forms</mat-card-subtitle>
+        <mat-card-subtitle>Download or preview parsed forms from database</mat-card-subtitle>
       </mat-card-header>
 
       <mat-card-content>
@@ -31,8 +32,8 @@ import { MatDividerModule } from '@angular/material/divider';
             <div class="form-info">
               <mat-icon>description</mat-icon>
               <div class="form-details">
-                <h3>{{form.name}}</h3>
-                <p>{{form.questions}} questions</p>
+                <h3>{{form.title}}</h3>
+                <p>{{form.language}} • {{form.version}} • {{form.created_at | date:'short'}}</p>
               </div>
             </div>
             
@@ -238,26 +239,33 @@ import { MatDividerModule } from '@angular/material/divider';
     }
   `]
 })
-export class DownloadComponent {
-  parsedForms = [
-    { name: 'Sample Form 1', questions: 10 },
-    { name: 'Sample Form 2', questions: 15 },
-    { name: 'Sample Form 3', questions: 8 }
-  ];
+export class DownloadComponent implements OnInit {
+  parsedForms: FormData[] = [];
 
-  previewForm(form: any) {
+  constructor(private formService: FormService) {}
+
+  ngOnInit(): void {
+    this.loadForms();
+  }
+
+  loadForms(): void {
+    this.formService.getAllForms().subscribe(response => {
+      this.parsedForms = response.forms;
+    });
+  }
+
+  previewForm(form: FormData) {
     console.log('Preview form:', form);
   }
 
-  downloadForm(form: any) {
+  downloadForm(form: FormData) {
     console.log('Download form:', form);
   }
 
-  deleteForm(form: any) {
-    const index = this.parsedForms.indexOf(form);
-    if (index > -1) {
-      this.parsedForms.splice(index, 1);
-    }
+  deleteForm(form: FormData) {
+    this.formService.deleteForm(form.id).subscribe(() => {
+      this.parsedForms = this.parsedForms.filter(f => f.id !== form.id);
+    });
   }
 
   downloadAllForms() {
@@ -265,6 +273,12 @@ export class DownloadComponent {
   }
 
   clearAllForms() {
-    this.parsedForms = [];
+    const deletePromises = this.parsedForms.map(form => 
+      this.formService.deleteForm(form.id).toPromise()
+    );
+    
+    Promise.all(deletePromises).then(() => {
+      this.parsedForms = [];
+    });
   }
 } 
