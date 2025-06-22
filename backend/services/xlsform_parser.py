@@ -13,36 +13,88 @@ class XLSFormParser:
     REQUIRED_QUESTIONS_COLUMNS = ['Order', 'Title', 'View Sequence', 'Input Type']
     REQUIRED_OPTIONS_COLUMNS = ['Order', 'Id', 'Label']
 
-    async def validate_file(self, file: UploadFile) -> bool:
+    async def validate_file(self, file: UploadFile) -> Dict[str, Any]:
         try:
             df_dict = pd.read_excel(file.file, sheet_name=None)
-
-            if not all(sheet in df_dict for sheet in self.REQUIRED_SHEETS):
-                logger.error("Missing required sheets")
-                return False
-
-            forms_df = df_dict['Forms']
-            if not all(col in forms_df.columns for col in self.REQUIRED_FORMS_COLUMNS):
-                logger.error("Missing required columns in Forms sheet")
-                return False
-
-            questions_df = df_dict['Questions Info']
-            if not all(col in questions_df.columns for col in self.REQUIRED_QUESTIONS_COLUMNS):
-                logger.error("Missing required columns in Questions Info sheet")
-                return False
-
-            options_df = df_dict['Answer Options']
-            if not all(col in options_df.columns for col in self.REQUIRED_OPTIONS_COLUMNS):
-                logger.error("Missing required columns in Answer Options sheet")
-                return False
-
-            return True
+            
+            sheets_validation = []
+            form_metadata = {}
+            questions_count = 0
+            options_count = 0
+            
+            # Validate Forms sheet
+            forms_validation = self._validate_sheet(
+                df_dict, 'Forms', self.REQUIRED_FORMS_COLUMNS
+            )
+            sheets_validation.append(forms_validation)
+            
+            if forms_validation['exists'] and not forms_validation['missing_columns']:
+                forms_df = df_dict['Forms']
+                if not forms_df.empty:
+                    form_metadata = {
+                        'language': forms_df.iloc[0].get('Language', 'Unknown'),
+                        'title': forms_df.iloc[0].get('Title', 'Untitled')
+                    }
+            
+            # Validate Questions Info sheet
+            questions_validation = self._validate_sheet(
+                df_dict, 'Questions Info', self.REQUIRED_QUESTIONS_COLUMNS
+            )
+            sheets_validation.append(questions_validation)
+            
+            if questions_validation['exists'] and not questions_validation['missing_columns']:
+                questions_df = df_dict['Questions Info']
+                questions_count = len(questions_df)
+            
+            # Validate Answer Options sheet
+            options_validation = self._validate_sheet(
+                df_dict, 'Answer Options', self.REQUIRED_OPTIONS_COLUMNS
+            )
+            sheets_validation.append(options_validation)
+            
+            if options_validation['exists'] and not options_validation['missing_columns']:
+                options_df = df_dict['Answer Options']
+                options_count = len(options_df)
+            
+            # Overall validation
+            is_valid = all(sheet['exists'] and not sheet['missing_columns'] for sheet in sheets_validation)
+            
+            return {
+                'valid': is_valid,
+                'message': "File format is valid." if is_valid else "Invalid XLSForm structure.",
+                'sheets': sheets_validation,
+                'form_metadata': form_metadata,
+                'questions_count': questions_count,
+                'options_count': options_count
+            }
 
         except Exception as e:
             logger.error(f"Error validating file: {str(e)}")
-            return False
+            return {
+                'valid': False,
+                'message': f"Error validating file: {str(e)}",
+                'sheets': [],
+                'form_metadata': {},
+                'questions_count': 0,
+                'options_count': 0
+            }
         finally:
             await file.seek(0)
+
+    def _validate_sheet(self, df_dict: Dict[str, pd.DataFrame], sheet_name: str, required_columns: List[str]) -> Dict[str, Any]:
+        exists = sheet_name in df_dict
+        columns = list(df_dict[sheet_name].columns) if exists else []
+        missing_columns = [col for col in required_columns if col not in columns]
+        row_count = len(df_dict[sheet_name]) if exists else 0
+        
+        return {
+            'name': sheet_name,
+            'exists': exists,
+            'columns': columns,
+            'required_columns': required_columns,
+            'missing_columns': missing_columns,
+            'row_count': row_count
+        }
 
     async def parse_file(self, file: UploadFile) -> ParsedForm:
         try:

@@ -99,6 +99,19 @@ import { MatDividerModule } from '@angular/material/divider';
           background: rgba(255, 255, 255, 0.1);
           border-radius: 50%;
           padding: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 40px;
+          height: 40px;
+
+          mat-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+          }
         }
 
         .mat-mdc-card-title {
@@ -188,6 +201,40 @@ import { MatDividerModule } from '@angular/material/divider';
       justify-content: flex-end;
       gap: 1rem;
       padding: 1rem;
+
+      button {
+        border: 2px solid;
+        border-radius: 8px;
+        padding: 8px 16px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+
+        &[color="primary"] {
+          background-color: #3f51b5;
+          border-color: #3f51b5;
+          color: white;
+
+          &:hover {
+            background-color: #303f9f;
+            border-color: #303f9f;
+          }
+        }
+
+        &[color="warn"] {
+          background-color: #f44336;
+          border-color: #f44336;
+          color: white;
+
+          &:hover {
+            background-color: #d32f2f;
+            border-color: #d32f2f;
+          }
+        }
+
+        mat-icon {
+          margin-right: 8px;
+        }
+      }
     }
   `]
 })

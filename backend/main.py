@@ -26,16 +26,20 @@ async def validate_file(file: UploadFile):
     Validate the uploaded Excel file format
     """
     try:
-        if not file.filename.endswith(('.xls', '.xlsx')):
-            return FormValidation(valid=False, message="Invalid file format. Only .xls/.xlsx files are allowed.")
+        if not file.filename or not file.filename.endswith(('.xls', '.xlsx')):
+            return FormValidation(
+                valid=False, 
+                message="Invalid file format. Only .xls/.xlsx files are allowed.",
+                sheets=[],
+                form_metadata={},
+                questions_count=0,
+                options_count=0
+            )
 
         parser = XLSFormParser()
-        is_valid = await parser.validate_file(file)
+        validation_result = await parser.validate_file(file)
 
-        return FormValidation(
-            valid=is_valid,
-            message="File format is valid." if is_valid else "Invalid XLSForm structure."
-        )
+        return FormValidation(**validation_result)
     except Exception as e:
         logger.error(f"Error validating file: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
