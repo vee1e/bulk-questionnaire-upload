@@ -6,8 +6,6 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { NavbarComponent } from './components/navbar/navbar.component';
 import { SearchComponent } from './components/search/search.component';
 import { UploadComponent } from './components/upload/upload.component';
-import { DownloadComponent } from './components/download/download.component';
-import { FileUploadComponent } from './components/file-upload/file-upload.component';
 
 @Component({
   selector: 'app-root',
@@ -19,9 +17,7 @@ import { FileUploadComponent } from './components/file-upload/file-upload.compon
     MatToolbarModule,
     NavbarComponent,
     SearchComponent,
-    UploadComponent,
-    DownloadComponent,
-    FileUploadComponent
+    UploadComponent
   ],
   template: `
     <div class="app-container">
@@ -30,9 +26,7 @@ import { FileUploadComponent } from './components/file-upload/file-upload.compon
         <app-search></app-search>
         <div class="content-grid">
           <app-upload></app-upload>
-          <app-download></app-download>
         </div>
-        <app-file-upload></app-file-upload>
         <router-outlet></router-outlet>
       </main>
     </div>
@@ -44,16 +38,16 @@ import { FileUploadComponent } from './components/file-upload/file-upload.compon
       flex-direction: column;
       background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
     }
-    
+
     .main-content {
       flex: 1;
       padding: 2rem;
       overflow-y: auto;
     }
-    
+
     .content-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      grid-template-columns: 1fr;
       gap: 2rem;
       margin-top: 2rem;
     }

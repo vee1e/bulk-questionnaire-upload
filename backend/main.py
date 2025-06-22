@@ -37,20 +37,19 @@ async def validate_file(file: UploadFile):
     """
     Validate the uploaded Excel file format
     """
-    try:
-        if not file.filename or not file.filename.endswith(('.xls', '.xlsx')):
-            return FormValidation(
-                valid=False, 
-                message="Invalid file format. Only .xls/.xlsx files are allowed.",
-                sheets=[],
-                form_metadata={},
-                questions_count=0,
-                options_count=0
-            )
+    if not file.filename or not file.filename.endswith(('.xls', '.xlsx')):
+        return FormValidation(
+            valid=False, 
+            message="Invalid file format. Only .xls/.xlsx files are allowed.",
+            sheets=[],
+            form_metadata={},
+            questions_count=0,
+            options_count=0
+        )
 
+    try:
         parser = XLSFormParser()
         validation_result = await parser.validate_file(file)
-
         return FormValidation(**validation_result)
     except Exception as e:
         logger.error(f"Error validating file: {str(e)}")
@@ -90,10 +89,10 @@ async def get_form_by_id(form_id: str):
         form = await db_service.get_form_by_id(form_id)
         if not form:
             raise HTTPException(status_code=404, detail="Form not found")
-        
+
         questions = await db_service.get_questions_by_form_id(form_id)
         options = await db_service.get_options_by_form_id(form_id)
-        
+
         return {
             "form": form,
             "questions": questions,
@@ -116,7 +115,7 @@ async def delete_form(form_id: str):
         success = await db_service.delete_form(form_id)
         if not success:
             raise HTTPException(status_code=404, detail="Form not found")
-        
+
         return {"message": "Form deleted successfully"}
     except HTTPException:
         raise
