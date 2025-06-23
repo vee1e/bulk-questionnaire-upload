@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, HTTPException
+from fastapi import FastAPI, UploadFile, HTTPException, File
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from services.xlsform_parser import XLSFormParser
@@ -6,6 +6,8 @@ from services.database_service import DatabaseService
 from models.form import FormValidation, ParsedForm
 from database import connect_to_mongo, close_mongo_connection
 import logging
+import asyncio
+from typing import List
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -55,18 +57,22 @@ async def validate_file(file: UploadFile):
         logger.error(f"Error validating file: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/api/upload", response_model=ParsedForm)
-async def upload_file(file: UploadFile):
+@app.post("/api/upload", response_model=List[ParsedForm])
+async def upload_files(files: List[UploadFile] = File(...)):
     """
-    Parse and process the uploaded XLSForm file
+    Parse and process multiple uploaded XLSForm files concurrently
     """
-    try:
-        parser = XLSFormParser()
-        parsed_form = await parser.parse_file(file)
-        return parsed_form
-    except Exception as e:
-        logger.error(f"Error processing file: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
+    parser = XLSFormParser()
+
+    async def process_file(file: UploadFile):
+        try:
+            return await parser.parse_file(file)
+        except Exception as e:
+            logger.error(f"Error processing file {file.filename}: {str(e)}")
+            return {"error": str(e), "filename": file.filename}
+
+    results = await asyncio.gather(*(process_file(file) for file in files))
+    return results
 
 @app.get("/api/forms")
 async def get_all_forms():

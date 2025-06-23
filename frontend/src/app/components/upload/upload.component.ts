@@ -18,6 +18,9 @@ import { FormValidation } from '../../models/form.model';
     MatProgressBarModule
   ],
   template: `
+    <div *ngIf="isUploading" class="global-upload-progress">
+      <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+    </div>
     <mat-card class="upload-card"
               [class.dragover]="isDragOver"
               (dragover)="onDragOver($event)"
@@ -41,85 +44,28 @@ import { FormValidation } from '../../models/form.model';
           <input #fileInput type="file"
                  accept=".xls,.xlsx"
                  style="display: none"
-                 (change)="onFileSelected($event)">
+                 (change)="onFileSelected($event)" multiple>
         </div>
 
         <!-- File Selection and Actions -->
-        <div *ngIf="selectedFile" class="file-actions">
-          <div class="selected-file">
-            <mat-icon>description</mat-icon>
-            <span>{{selectedFile.name}}</span>
-          </div>
-          <div class="button-group">
-            <button mat-raised-button color="accent" (click)="validateFile()" [disabled]="isValidating">
+        <div *ngIf="selectedFiles.length > 0" class="file-actions">
+          <div class="button-group mass-action-group" *ngIf="selectedFiles.length > 0">
+            <button mat-raised-button color="accent" (click)="validateFiles()" [disabled]="isValidating">
               <mat-icon>check_circle</mat-icon>
-              {{isValidating ? 'Validating...' : 'Validate'}}
+              {{isValidating ? 'Validating...' : 'Validate All'}}
             </button>
-            <button mat-raised-button color="primary" (click)="uploadFile()" [disabled]="isUploading || !validationResult?.valid">
+            <button mat-raised-button color="primary" (click)="uploadFiles()" [disabled]="isUploading || !allValid">
               <mat-icon>upload</mat-icon>
               {{isUploading ? 'Uploading...' : 'Upload'}}
             </button>
           </div>
-        </div>
-
-        <!-- Upload Progress -->
-        <div *ngIf="isUploading" class="upload-progress">
-          <mat-progress-bar mode="determinate" [value]="uploadProgress">
-          </mat-progress-bar>
-          <span>{{uploadProgress}}%</span>
-        </div>
-
-        <!-- Validation Result -->
-        <div *ngIf="validationResult" class="validation-result" [class.valid]="validationResult.valid" [class.invalid]="!validationResult.valid">
-          <h3>Validation Result</h3>
-          <p class="status">Status: {{ validationResult.valid ? 'Valid' : 'Invalid' }}</p>
-          <p class="message">{{ validationResult.message }}</p>
-
-          <div *ngIf="validationResult.form_metadata" class="metadata-section">
-            <h4>Form Metadata</h4>
-            <div class="metadata-grid">
-              <div class="metadata-item">
-                <strong>Language:</strong> {{ validationResult.form_metadata['language'] }}
-              </div>
-              <div class="metadata-item">
-                <strong>Title:</strong> {{ validationResult.form_metadata['title'] }}
-              </div>
-            </div>
-          </div>
-
-          <div class="stats-section">
-            <h4>File Statistics</h4>
-            <div class="stats-grid">
-              <div class="stat-item">
-                <strong>Questions:</strong> {{ validationResult.questions_count || 0 }}
-              </div>
-              <div class="stat-item">
-                <strong>Answer Options:</strong> {{ validationResult.options_count || 0 }}
-              </div>
-            </div>
-          </div>
-
-          <div *ngIf="validationResult.sheets && validationResult.sheets.length > 0" class="sheets-section">
-            <h4>Sheet Details</h4>
-            <div class="sheets-grid">
-              <div *ngFor="let sheet of validationResult.sheets" class="sheet-item" [class.valid]="sheet.exists && sheet.missing_columns.length === 0" [class.invalid]="!sheet.exists || sheet.missing_columns.length > 0">
-                <div class="sheet-header">
-                  <h5>{{ sheet.name }}</h5>
-                  <span class="sheet-status">{{ sheet.exists && sheet.missing_columns.length === 0 ? '✓' : '✗' }}</span>
-                </div>
-                <div class="sheet-details">
-                  <p><strong>Exists:</strong> {{ sheet.exists ? 'Yes' : 'No' }}</p>
-                  <p><strong>Rows:</strong> {{ sheet.row_count }}</p>
-                  <p><strong>Columns:</strong> {{ sheet.columns.join(', ') }}</p>
-                  <div *ngIf="sheet.missing_columns.length > 0" class="missing-columns">
-                    <strong>Missing Columns:</strong>
-                    <ul>
-                      <li *ngFor="let col of sheet.missing_columns">{{ col }}</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div class="selected-file" *ngFor="let file of selectedFiles">
+            <mat-icon>description</mat-icon>
+            <span>{{file.name}}</span>
+            <span *ngIf="validationResults[file.name]" [ngClass]="{'valid': validationResults[file.name].valid, 'invalid': !validationResults[file.name].valid}">
+              {{validationResults[file.name].valid ? '✓' : '✗'}}
+              {{validationResults[file.name].message}}
+            </span>
           </div>
         </div>
 
@@ -336,162 +282,6 @@ import { FormValidation } from '../../models/form.model';
       }
     }
 
-    .upload-progress {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      padding: 1rem;
-      color: white;
-
-      mat-progress-bar {
-        flex: 1;
-      }
-    }
-
-    .validation-result {
-      padding: 1rem;
-      margin: 1rem;
-      border-radius: 4px;
-      background: rgba(255, 255, 255, 0.05);
-
-      &.valid {
-        border-left: 4px solid #4CAF50;
-      }
-
-      &.invalid {
-        border-left: 4px solid #f44336;
-      }
-
-      h3 {
-        margin: 0 0 0.5rem;
-        font-size: 1.1rem;
-      }
-
-      .status {
-        font-weight: 500;
-        margin: 0.5rem 0;
-      }
-
-      .message {
-        margin: 0.5rem 0;
-        color: rgba(255, 255, 255, 0.8);
-      }
-
-      .metadata-section {
-        margin-top: 1rem;
-
-        h4 {
-          margin: 0 0 0.5rem;
-          font-size: 1rem;
-        }
-
-        .metadata-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 0.5rem;
-
-          .metadata-item {
-            padding: 0.25rem 0;
-          }
-        }
-      }
-
-      .stats-section {
-        margin-top: 1rem;
-
-        h4 {
-          margin: 0 0 0.5rem;
-          font-size: 1rem;
-        }
-
-        .stats-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 0.5rem;
-
-          .stat-item {
-            padding: 0.25rem 0;
-          }
-        }
-      }
-
-      .sheets-section {
-        margin-top: 1rem;
-
-        h4 {
-          margin: 0 0 0.5rem;
-          font-size: 1rem;
-        }
-
-        .sheets-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 0.5rem;
-        }
-
-        .sheet-item {
-          padding: 0.5rem;
-          background: rgba(255, 255, 255, 0.05);
-          border-radius: 4px;
-          margin-bottom: 0.5rem;
-          transition: all 0.3s ease;
-
-          &.valid {
-            border-left: 3px solid #4CAF50;
-          }
-
-          &.invalid {
-            border-left: 3px solid #f44336;
-          }
-
-          &:hover {
-            background: rgba(255, 255, 255, 0.1);
-          }
-
-          .sheet-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 0.5rem;
-
-            h5 {
-              margin: 0;
-              font-size: 1rem;
-              font-weight: 500;
-            }
-
-            .sheet-status {
-              padding: 0.25rem 0.5rem;
-              background: rgba(255, 255, 255, 0.05);
-              border-radius: 4px;
-              font-weight: 500;
-            }
-          }
-
-          .sheet-details {
-            p {
-              margin: 0.25rem 0;
-              font-size: 0.875rem;
-              color: rgba(255, 255, 255, 0.7);
-            }
-
-            .missing-columns {
-              margin-top: 0.5rem;
-
-              strong {
-                margin-right: 0.5rem;
-              }
-
-              ul {
-                margin: 0;
-                padding-left: 1rem;
-              }
-            }
-          }
-        }
-      }
-    }
-
     .form-list {
       border-top: 2px dashed #b39ddb;
       border-radius: 0;
@@ -546,276 +336,284 @@ import { FormValidation } from '../../models/form.model';
       position: fixed;
       top: 0;
       left: 0;
-      width: 100%;
-      height: 100%;
+      width: 100vw;
+      height: 100vh;
+      z-index: 3000;
       display: flex;
-      justify-content: center;
       align-items: center;
-      background-color: rgba(0, 0, 0, 0.5);
-      z-index: 1000;
+      justify-content: center;
+      pointer-events: none;
+    }
+    .form-details-modal .modal-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0,0,0,0.5);
+      z-index: 3001;
+      pointer-events: auto;
+    }
+    .form-details-modal .modal-content {
+      position: relative;
+      margin: auto;
+      width: 98vw;
+      max-width: 900px;
+      max-height: 90vh;
+      background: #23234a;
+      color: white;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+      z-index: 3002;
+      padding: 2rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      pointer-events: auto;
+    }
 
-      .modal-overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+      h2 {
+        margin: 0;
+        color: white;
+        font-size: 1.5rem;
+        font-weight: 500;
       }
 
-      .modal-content {
-        background: rgba(26, 26, 46, 0.95);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        padding: 2rem;
-        border-radius: 8px;
-        width: 80%;
-        max-width: 800px;
-        max-height: 80vh;
-        overflow-y: auto;
-        position: relative;
+      button {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
         color: white;
 
-        .modal-header {
+        &:hover {
+          background: rgba(255, 255, 255, 0.2);
+          border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        mat-icon {
+          font-size: 24px;
+          width: 24px;
+          height: 24px;
           display: flex;
-          justify-content: space-between;
           align-items: center;
-          margin-bottom: 1.5rem;
-          padding-bottom: 1rem;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+          justify-content: center;
+        }
+      }
+    }
 
-          h2 {
-            margin: 0;
-            color: white;
-            font-size: 1.5rem;
-            font-weight: 500;
-          }
+    .modal-body {
+      .form-info-section {
+        margin-bottom: 2rem;
+        padding: 1rem;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
 
-          button {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            color: white;
+        h3 {
+          margin: 0 0 1rem;
+          color: white;
+          font-size: 1.2rem;
+          font-weight: 500;
+        }
 
-            &:hover {
-              background: rgba(255, 255, 255, 0.2);
-              border-color: rgba(255, 255, 255, 0.3);
+        .info-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          gap: 1rem;
+
+          .info-item {
+            padding: 0.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+
+            strong {
+              display: block;
+              margin-bottom: 0.25rem;
+              color: rgba(255, 255, 255, 0.8);
+              font-size: 0.875rem;
             }
 
-            mat-icon {
-              font-size: 20px;
-              width: 20px;
-              height: 20px;
+            span {
+              color: white;
+              font-weight: 500;
             }
           }
         }
+      }
 
-        .modal-body {
-          .form-info-section {
-            margin-bottom: 2rem;
+      .questions-section {
+        margin-top: 2rem;
+
+        h3 {
+          margin: 0 0 1rem;
+          color: white;
+          font-size: 1.2rem;
+          font-weight: 500;
+        }
+
+        .questions-list {
+          .question-item {
+            margin-bottom: 1rem;
             padding: 1rem;
             background: rgba(255, 255, 255, 0.05);
             border-radius: 8px;
+            border-left: 3px solid #3f51b5;
 
-            h3 {
-              margin: 0 0 1rem;
-              color: white;
-              font-size: 1.2rem;
-              font-weight: 500;
-            }
-
-            .info-grid {
-              display: grid;
-              grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            .question-header {
+              display: flex;
+              align-items: center;
               gap: 1rem;
+              margin-bottom: 0.5rem;
 
-              .info-item {
-                padding: 0.5rem;
-                background: rgba(255, 255, 255, 0.05);
-                border-radius: 4px;
-
-                strong {
-                  display: block;
-                  margin-bottom: 0.25rem;
-                  color: rgba(255, 255, 255, 0.8);
-                  font-size: 0.875rem;
-                }
-
-                span {
-                  color: white;
-                  font-weight: 500;
-                }
-              }
-            }
-          }
-
-          .questions-section {
-            margin-top: 2rem;
-
-            h3 {
-              margin: 0 0 1rem;
-              color: white;
-              font-size: 1.2rem;
-              font-weight: 500;
-            }
-
-            .questions-list {
-              .question-item {
-                margin-bottom: 1rem;
-                padding: 1rem;
-                background: rgba(255, 255, 255, 0.05);
-                border-radius: 8px;
-                border-left: 3px solid #3f51b5;
-
-                .question-header {
-                  display: flex;
-                  align-items: center;
-                  gap: 1rem;
-                  margin-bottom: 0.5rem;
-
-                  .question-number {
-                    background: #3f51b5;
-                    color: white;
-                    width: 24px;
-                    height: 24px;
-                    border-radius: 50%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 0.75rem;
-                    font-weight: bold;
-                  }
-
-                  h4 {
-                    margin: 0;
-                    color: white;
-                    font-size: 1rem;
-                    font-weight: 500;
-                    flex: 1;
-                  }
-
-                  .question-type {
-                    padding: 0.25rem 0.5rem;
-                    background: rgba(255, 255, 255, 0.1);
-                    border-radius: 4px;
-                    font-size: 0.75rem;
-                    font-weight: 500;
-                    color: rgba(255, 255, 255, 0.8);
-                  }
-                }
-
-                .question-details {
-                  margin-bottom: 0.5rem;
-
-                  p {
-                    margin: 0.25rem 0;
-                    color: rgba(255, 255, 255, 0.7);
-                    font-size: 0.875rem;
-
-                    strong {
-                      color: rgba(255, 255, 255, 0.9);
-                    }
-                  }
-                }
-
-                .question-options {
-                  margin-top: 0.5rem;
-
-                  h5 {
-                    margin: 0 0 0.5rem;
-                    color: rgba(255, 255, 255, 0.8);
-                    font-size: 0.875rem;
-                  }
-
-                  .options-list {
-                    .option-item {
-                      display: flex;
-                      align-items: center;
-                      gap: 0.5rem;
-                      margin-bottom: 0.25rem;
-                      padding: 0.25rem 0.5rem;
-                      background: rgba(255, 255, 255, 0.03);
-                      border-radius: 4px;
-
-                      .option-id {
-                        background: rgba(255, 255, 255, 0.1);
-                        color: white;
-                        padding: 0.125rem 0.375rem;
-                        border-radius: 3px;
-                        font-size: 0.75rem;
-                        font-weight: bold;
-                        min-width: 20px;
-                        text-align: center;
-                      }
-
-                      .option-label {
-                        flex: 1;
-                        color: white;
-                        font-size: 0.875rem;
-                      }
-
-                      .option-order {
-                        font-size: 0.75rem;
-                        color: rgba(255, 255, 255, 0.5);
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-
-          .all-options-section {
-            margin-top: 2rem;
-            padding: 1rem;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 8px;
-
-            h3 {
-              margin: 0 0 1rem;
-              color: white;
-              font-size: 1.2rem;
-              font-weight: 500;
-            }
-
-            .options-list {
-              .option-item {
+              .question-number {
+                background: #3f51b5;
+                color: white;
+                width: 24px;
+                height: 24px;
+                border-radius: 50%;
                 display: flex;
                 align-items: center;
-                gap: 0.5rem;
-                margin-bottom: 0.5rem;
-                padding: 0.5rem;
-                background: rgba(255, 255, 255, 0.05);
+                justify-content: center;
+                font-size: 0.75rem;
+                font-weight: bold;
+              }
+
+              h4 {
+                margin: 0;
+                color: white;
+                font-size: 1rem;
+                font-weight: 500;
+                flex: 1;
+              }
+
+              .question-type {
+                padding: 0.25rem 0.5rem;
+                background: rgba(255, 255, 255, 0.1);
                 border-radius: 4px;
+                font-size: 0.75rem;
+                font-weight: 500;
+                color: rgba(255, 255, 255, 0.8);
+              }
+            }
 
-                .option-id {
-                  background: rgba(255, 255, 255, 0.1);
-                  color: white;
-                  padding: 0.25rem 0.5rem;
-                  border-radius: 3px;
-                  font-size: 0.75rem;
-                  font-weight: bold;
-                  min-width: 30px;
-                  text-align: center;
-                }
+            .question-details {
+              margin-bottom: 0.5rem;
 
-                .option-label {
-                  flex: 1;
-                  color: white;
-                  font-size: 0.875rem;
-                }
+              p {
+                margin: 0.25rem 0;
+                color: rgba(255, 255, 255, 0.7);
+                font-size: 0.875rem;
 
-                .option-order {
-                  font-size: 0.75rem;
-                  color: rgba(255, 255, 255, 0.5);
+                strong {
+                  color: rgba(255, 255, 255, 0.9);
                 }
               }
+            }
+
+            .question-options {
+              margin-top: 0.5rem;
+
+              h5 {
+                margin: 0 0 0.5rem;
+                color: rgba(255, 255, 255, 0.8);
+                font-size: 0.875rem;
+              }
+
+              .options-list {
+                .option-item {
+                  display: flex;
+                  align-items: center;
+                  gap: 0.5rem;
+                  margin-bottom: 0.25rem;
+                  padding: 0.25rem 0.5rem;
+                  background: rgba(255, 255, 255, 0.03);
+                  border-radius: 4px;
+
+                  .option-id {
+                    background: rgba(255, 255, 255, 0.1);
+                    color: white;
+                    padding: 0.125rem 0.375rem;
+                    border-radius: 3px;
+                    font-size: 0.75rem;
+                    font-weight: bold;
+                    min-width: 20px;
+                    text-align: center;
+                  }
+
+                  .option-label {
+                    flex: 1;
+                    color: white;
+                    font-size: 0.875rem;
+                  }
+
+                  .option-order {
+                    font-size: 0.75rem;
+                    color: rgba(255, 255, 255, 0.5);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      .all-options-section {
+        margin-top: 2rem;
+        padding: 1rem;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+
+        h3 {
+          margin: 0 0 1rem;
+          color: white;
+          font-size: 1.2rem;
+          font-weight: 500;
+        }
+
+        .options-list {
+          .option-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            padding: 0.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+
+            .option-id {
+              background: rgba(255, 255, 255, 0.1);
+              color: white;
+              padding: 0.25rem 0.5rem;
+              border-radius: 3px;
+              font-size: 0.75rem;
+              font-weight: bold;
+              min-width: 30px;
+              text-align: center;
+            }
+
+            .option-label {
+              flex: 1;
+              color: white;
+              font-size: 0.875rem;
+            }
+
+            .option-order {
+              font-size: 0.75rem;
+              color: rgba(255, 255, 255, 0.5);
             }
           }
         }
@@ -833,20 +631,32 @@ import { FormValidation } from '../../models/form.model';
       justify-content: center;
       align-items: center;
     }
+
+    .valid { color: #4CAF50; margin-left: 8px; }
+    .invalid { color: #f44336; margin-left: 8px; }
+    .mass-action-group { display: flex; gap: 1rem; justify-content: center; margin-bottom: 1rem; }
+
+    .global-upload-progress {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      z-index: 4000;
+    }
   `]
 })
 export class UploadComponent implements OnInit, OnChanges {
   isDragOver = false;
   isUploading = false;
-  isValidating = false;
-  uploadProgress = 0;
-  selectedFile: File | null = null;
-  validationResult: FormValidation | null = null;
+  selectedFiles: File[] = [];
   parsedForms: FormData[] = [];
   filteredForms: FormData[] = [];
   selectedFormDetails: FormDetails | null = null;
   isDeletingAll = false;
   @Input() searchQuery: string = '';
+  validationResults: { [filename: string]: { valid: boolean; message: string } } = {};
+  isValidating = false;
+  allValid = false;
 
   constructor(private formService: FormService) {}
 
@@ -879,60 +689,60 @@ export class UploadComponent implements OnInit, OnChanges {
 
     const files = event.dataTransfer?.files;
     if (files && files.length > 0) {
-      this.selectedFile = files[0];
-      this.validationResult = null;
+      this.selectedFiles = Array.from(files);
     }
   }
 
   onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files.length > 0) {
-      this.selectedFile = input.files[0];
-      this.validationResult = null;
+      this.selectedFiles = Array.from(input.files);
     }
     input.value = '';
   }
 
-  validateFile() {
-    if (!this.selectedFile) return;
-
+  validateFiles() {
+    if (this.selectedFiles.length === 0) return;
     this.isValidating = true;
-    this.formService.validateFile(this.selectedFile).subscribe({
-      next: (result) => {
-        this.validationResult = result;
-        this.isValidating = false;
-      },
-      error: (error: any) => {
-        console.error('Validation failed:', error);
-        this.isValidating = false;
-      }
+    this.validationResults = {};
+    let validated = 0;
+    let validCount = 0;
+    this.selectedFiles.forEach(file => {
+      this.formService.validateFile(file).subscribe({
+        next: (result) => {
+          this.validationResults[file.name] = { valid: result.valid, message: result.message };
+          validated++;
+          if (result.valid) validCount++;
+          if (validated === this.selectedFiles.length) {
+            this.isValidating = false;
+            this.allValid = validCount === this.selectedFiles.length;
+          }
+        },
+        error: (error: any) => {
+          this.validationResults[file.name] = { valid: false, message: 'Validation failed' };
+          validated++;
+          if (validated === this.selectedFiles.length) {
+            this.isValidating = false;
+            this.allValid = validCount === this.selectedFiles.length;
+          }
+        }
+      });
     });
   }
 
-  uploadFile() {
-    if (!this.selectedFile || !this.validationResult?.valid) return;
-
+  uploadFiles() {
+    if (this.selectedFiles.length === 0 || !this.allValid) return;
     this.isUploading = true;
-    this.uploadProgress = 0;
-
-    const progressInterval = setInterval(() => {
-      this.uploadProgress = Math.min(this.uploadProgress + 10, 90);
-      if (this.uploadProgress >= 90) {
-        clearInterval(progressInterval);
-      }
-    }, 200);
-
-    this.formService.uploadFile(this.selectedFile).subscribe({
+    this.formService.uploadFiles(this.selectedFiles).subscribe({
       next: () => {
-        clearInterval(progressInterval);
-        this.uploadProgress = 100;
-        setTimeout(() => {
-          this.resetUploadState();
-        }, 500);
+        this.isUploading = false;
+        this.selectedFiles = [];
+        this.validationResults = {};
+        this.allValid = false;
+        this.loadForms();
       },
       error: (error: any) => {
-        clearInterval(progressInterval);
-        this.resetUploadState();
+        this.isUploading = false;
         console.error('Upload failed:', error);
       }
     });
@@ -940,9 +750,7 @@ export class UploadComponent implements OnInit, OnChanges {
 
   private resetUploadState(): void {
     this.isUploading = false;
-    this.uploadProgress = 0;
-    this.selectedFile = null;
-    this.validationResult = null;
+    this.selectedFiles = [];
     this.loadForms();
   }
 

@@ -54,7 +54,7 @@ import { UploadComponent } from './components/upload/upload.component';
   `]
 })
 export class AppComponent {
-  title = 'mForm Upload';
+  title = 'mForm Bulk Upload';
   searchQuery = '';
 
   onSearch(query: string) {
