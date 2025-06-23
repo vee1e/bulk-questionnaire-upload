@@ -8,6 +8,8 @@ from database import connect_to_mongo, close_mongo_connection
 import logging
 import asyncio
 from typing import List
+import time
+import os
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -24,10 +26,22 @@ app.add_middleware(
 
 db_service = DatabaseService()
 
+METRICS_FILE = os.path.join(os.path.dirname(__file__), 'metrics.txt')
+
+def log_metric(metric_name, value):
+    timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+    with open(METRICS_FILE, 'a') as f:
+        f.write(f"[{timestamp}] {metric_name}: {value}\n")
+
+startup_time = None
+
 @app.on_event("startup")
 async def startup_event():
-    """Connect to MongoDB on startup"""
+    """Connect to MongoDB on startup and log cold start time"""
+    global startup_time
+    startup_time = time.time()
     await connect_to_mongo()
+    log_metric('cold_startup_time', time.strftime('%Y-%m-%d %H:%M:%S'))
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -41,7 +55,7 @@ async def validate_file(file: UploadFile):
     """
     if not file.filename or not file.filename.endswith(('.xls', '.xlsx')):
         return FormValidation(
-            valid=False, 
+            valid=False,
             message="Invalid file format. Only .xls/.xlsx files are allowed.",
             sheets=[],
             form_metadata={},
@@ -71,7 +85,15 @@ async def upload_files(files: List[UploadFile] = File(...)):
             logger.error(f"Error processing file {file.filename}: {str(e)}")
             return {"error": str(e), "filename": file.filename}
 
+    batch_start = time.time()
     results = await asyncio.gather(*(process_file(file) for file in files))
+    batch_time = time.time() - batch_start
+    log_metric('all_forms_batch_process_time', batch_time)
+    total_forms = len(files)
+    log_metric('total_forms', total_forms)
+    if total_forms > 0:
+        avg_form_time = batch_time / total_forms
+        log_metric('avg_one_form_process_time', avg_form_time)
     return results
 
 @app.get("/api/forms")
@@ -117,11 +139,20 @@ async def delete_form(form_id: str):
     """
     Delete a form and all related data
     """
+    start_delete = time.time()
     try:
+        form = await db_service.get_form_by_id(form_id)
+        questions = await db_service.get_questions_by_form_id(form_id)
+        options = await db_service.get_options_by_form_id(form_id)
+        num_questions = len(questions)
+        num_options = len(options)
         success = await db_service.delete_form(form_id)
+        delete_time = time.time() - start_delete
+        log_metric('delete_form_time', delete_time)
+        log_metric('deleted_questions', num_questions)
+        log_metric('deleted_options', num_options)
         if not success:
             raise HTTPException(status_code=404, detail="Form not found")
-
         return {"message": "Form deleted successfully"}
     except HTTPException:
         raise
@@ -134,8 +165,23 @@ async def delete_all_forms():
     """
     Delete all forms and all related data
     """
+    start_delete = time.time()
     try:
+        forms = await db_service.get_all_forms()
+        questions_count = 0
+        options_count = 0
+        for form in forms:
+            questions = await db_service.get_questions_by_form_id(form['id'])
+            options = await db_service.get_options_by_form_id(form['id'])
+            questions_count += len(questions)
+            options_count += len(options)
+        total_forms = len(forms)
         success = await db_service.delete_all_forms()
+        delete_time = time.time() - start_delete
+        log_metric('delete_all_forms_time', delete_time)
+        log_metric('deleted_forms', total_forms)
+        log_metric('deleted_questions', questions_count)
+        log_metric('deleted_options', options_count)
         if not success:
             raise HTTPException(status_code=500, detail="Failed to delete all forms")
         return {"message": "All forms deleted successfully"}

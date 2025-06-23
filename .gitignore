@@ -5,6 +5,7 @@ __pycache__/
 venv/
 .env
 .pytest_cache/
+metrics.txt
 
 # Frontend
 node_modules/
@@ -20,4 +21,3 @@ dist/
 # personal
 tests/
 project-plans/
-

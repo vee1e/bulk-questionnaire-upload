@@ -5,8 +5,17 @@ import uuid
 from models.form import ParsedForm, FormGroup, Question
 from services.database_service import DatabaseService
 import logging
+import time
+import os
 
 logger = logging.getLogger(__name__)
+
+METRICS_FILE = os.path.join(os.path.dirname(__file__), '../metrics.txt')
+
+def log_metric(metric_name, value):
+    timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+    with open(METRICS_FILE, 'a') as f:
+        f.write(f"[{timestamp}] {metric_name}: {value}\n")
 
 class XLSFormParser:
     REQUIRED_SHEETS = ['Forms', 'Questions Info', 'Answer Options']
@@ -18,6 +27,7 @@ class XLSFormParser:
         self.db_service = DatabaseService()
 
     async def validate_file(self, file: UploadFile) -> Dict[str, Any]:
+        start_validation = time.time()
         try:
             df_dict = pd.read_excel(file.file, sheet_name=None)
 
@@ -58,6 +68,8 @@ class XLSFormParser:
                 options_count = len(options_df)
 
             is_valid = all(sheet['exists'] and not sheet['missing_columns'] for sheet in sheets_validation)
+            validation_time = time.time() - start_validation
+            log_metric('validation_time_per_form', validation_time)
 
             return {
                 'valid': is_valid,
@@ -97,6 +109,7 @@ class XLSFormParser:
         }
 
     async def parse_file(self, file: UploadFile) -> ParsedForm:
+        start_all = time.time()
         try:
             df_dict = pd.read_excel(file.file, sheet_name=None)
 
@@ -104,19 +117,36 @@ class XLSFormParser:
             questions_df = df_dict['Questions Info']
             options_df = df_dict['Answer Options']
 
+            start_form = time.time()
             form_metadata = self._parse_form_metadata(forms_df)
-
             form_id = await self.db_service.save_form(form_metadata)
+            form_time = time.time() - start_form
+            log_metric('form_process_time', form_time)
 
+            start_questions = time.time()
             questions_data = self._parse_questions_data(questions_df)
             question_ids = await self.db_service.save_questions(questions_data, form_id)
+            questions_time = time.time() - start_questions
+            log_metric('questions_process_time', questions_time)
+            if len(questions_data) > 0:
+                avg_question_time = questions_time / len(questions_data)
+                log_metric('avg_one_question_process_time', avg_question_time)
 
+            start_options = time.time()
             options_data = self._parse_options_data(options_df)
             option_ids = await self.db_service.save_options(options_data, form_id)
+            options_time = time.time() - start_options
+            log_metric('options_process_time', options_time)
+            if len(options_data) > 0:
+                avg_option_time = options_time / len(options_data)
+                log_metric('avg_one_option_process_time', avg_option_time)
 
             form_title = self._get_form_title(forms_df)
             form_version = '1.0.0'
             groups = self._parse_questions(questions_df, options_df)
+
+            total_time = time.time() - start_all
+            log_metric('total_form_upload_time', total_time)
 
             return ParsedForm(
                 id=form_id,
@@ -128,7 +158,11 @@ class XLSFormParser:
                     'questions_count': len(questions_data),
                     'options_count': len(options_data),
                     'saved_question_ids': question_ids,
-                    'saved_option_ids': option_ids
+                    'saved_option_ids': option_ids,
+                    'form_process_time': form_time,
+                    'questions_process_time': questions_time,
+                    'options_process_time': options_time,
+                    'total_form_upload_time': total_time
                 }
             )
 

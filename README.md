@@ -159,3 +159,22 @@ mongosh --eval "db.runCommand('ping')"
 }
 ```
 
+## Sample Performance Metrics Output
+
+Below is a real example of metrics collected for uploading 9 forms (each with ~400 questions and 3-10 options per question):
+| Metric                          | Time                           | Description                                      |
+| ------------------------------- | ------------------------------ | ------------------------------------------------ |
+| `delete_all_forms_time`         | 460ms                          | Time to delete all forms                         |
+| `deleted_forms`                 | 9                              | Number of forms deleted                          |
+| `deleted_questions`             | 3570                           | Number of questions deleted                      |
+| `deleted_options`               | 23154                          | Number of options deleted                        |
+| `validation_time_per_form`      | 120-260ms                      | Time to validate each form file                  |
+| `form_process_time`             | 240-1080ms                     | Time to process and save one form                |
+| `questions_process_time`        | 1.6-2.92s                      | Time to process and save all questions in a form |
+| `avg_one_question_process_time` | 4-7ms                          | Average time to process one question             |
+| `options_process_time`          | 9.23-11.8s                     | Time to process and save all options in a form   |
+| `avg_one_option_process_time`   | 3.6-4.5ms                      | Average time to process one option               |
+| `total_form_upload_time`        | 12.04-15.62s                   | Total time to process and upload a form          |
+| `all_forms_batch_process_time`  | 15.63s                         | Time to process all forms in the batch           |
+| `total_forms`                   | 9                              | Number of forms processed in the batch           |
+| `avg_one_form_process_time`     | 1.74s                          | Average time to process one form in the batch    |
