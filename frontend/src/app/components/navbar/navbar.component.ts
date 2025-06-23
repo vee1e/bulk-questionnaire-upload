@@ -11,7 +11,7 @@ import { MatIconModule } from '@angular/material/icon';
     <mat-toolbar class="navbar">
       <div class="navbar-brand">
         <mat-icon class="brand-icon">description</mat-icon>
-        <span>mForm Upload</span>
+        <span>mForm Bulk Upload</span>
       </div>
     </mat-toolbar>
   `,
