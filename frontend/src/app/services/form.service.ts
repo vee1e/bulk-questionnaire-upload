@@ -74,4 +74,8 @@ export class FormService {
   deleteForm(formId: string): Observable<{ message: string }> {
     return this.http.delete<{ message: string }>(`${this.apiUrl}/forms/${formId}`);
   }
+
+  deleteAllForms(): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(`${this.apiUrl}/forms`);
+  }
 }

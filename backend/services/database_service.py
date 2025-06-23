@@ -71,7 +71,7 @@ class DatabaseService:
     async def get_questions_by_form_id(self, form_id: str) -> List[Dict[str, Any]]:
         """Get all questions for a form"""
         try:
-            questions = await questions_collection.find({"form_id": form_id}).to_list(length=None)
+            questions = await questions_collection.find({"form_id": form_id}).to_list(length=10000)
             for question in questions:
                 question['id'] = str(question['_id'])
                 del question['_id']
@@ -83,7 +83,7 @@ class DatabaseService:
     async def get_options_by_form_id(self, form_id: str) -> List[Dict[str, Any]]:
         """Get all options for a form"""
         try:
-            options = await options_collection.find({"form_id": form_id}).to_list(length=None)
+            options = await options_collection.find({"form_id": form_id}).to_list(length=10000)
             for option in options:
                 option['id'] = str(option['_id'])
                 del option['_id']
@@ -93,9 +93,9 @@ class DatabaseService:
             return []
 
     async def get_all_forms(self) -> List[Dict[str, Any]]:
-        """Get all forms"""
+        """Get all forms, sorted by created_at descending"""
         try:
-            forms = await forms_collection.find().to_list(length=None)
+            forms = await forms_collection.find().sort("created_at", -1).to_list(length=10000)
             for form in forms:
                 form['id'] = str(form['_id'])
                 del form['_id']
@@ -117,4 +117,16 @@ class DatabaseService:
             return form_result.deleted_count > 0
         except Exception as e:
             logger.error(f"Error deleting form: {e}")
+            return False
+
+    async def delete_all_forms(self) -> bool:
+        """Delete all forms and all related data"""
+        try:
+            forms_result = await forms_collection.delete_many({})
+            questions_result = await questions_collection.delete_many({})
+            options_result = await options_collection.delete_many({})
+            logger.info(f"Deleted all forms ({forms_result.deleted_count}), questions ({questions_result.deleted_count}), and options ({options_result.deleted_count})")
+            return True
+        except Exception as e:
+            logger.error(f"Error deleting all forms: {e}")
             return False 
