@@ -102,8 +102,8 @@ The application expects Excel files with three sheets:
 
 ## Features
 
-- ✅ Excel file validation with detailed feedback
-- ✅ MongoDB integration for data persistence
-- ✅ RESTful API endpoints
-- ✅ Error handling and logging
-- ✅ CORS support for frontend integration 
+- Excel file validation with detailed feedback
+- MongoDB integration for data persistence
+- RESTful API endpoints
+- Error handling and logging
+- CORS support for frontend integration

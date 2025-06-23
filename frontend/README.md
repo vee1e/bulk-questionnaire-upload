@@ -1,59 +1,25 @@
-# MformUpload
+# mForm Bulk Upload
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.2.9.
+## About the Frontend
 
-## Development server
+This frontend is a modern Angular application for bulk uploading, validating, and managing questionnaire forms (in Excel format). It provides a user-friendly interface for users to drag-and-drop or browse files, validate them, upload them to the backend, and view/manage parsed forms and their details.
 
-To start a local development server, run:
+### Main Features
+- **Bulk Upload**: Drag-and-drop or select multiple Excel files for upload.
+- **Validation**: Validate all selected files before uploading to ensure correct format and content.
+- **Form Management**: View a list of all uploaded forms, search by title, and delete individual or all forms.
+- **Form Details**: Click on a form to view its questions, options, and metadata in a modal dialog.
+- **Responsive UI**: Built with Angular Material for a clean, modern, and responsive user experience.
 
-```bash
-ng serve
-```
+### Key Components
+- **Navbar**: Displays the application title and navigation bar.
+- **Search**: Allows searching forms by title.
+- **Upload**: Handles file selection, validation, upload, and displays the list of forms and their details.
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+### Project Structure
+- `src/app/components/navbar/` - Navigation bar component
+- `src/app/components/search/` - Search bar component
+- `src/app/components/upload/` - Main upload and form management component
+- `src/app/services/` - Services for form parsing and backend API communication
+- `src/app/models/` - TypeScript interfaces for form and question data
 
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
