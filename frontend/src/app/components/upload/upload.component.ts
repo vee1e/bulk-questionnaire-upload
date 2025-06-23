@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -124,9 +124,17 @@ import { FormValidation } from '../../models/form.model';
         </div>
 
         <!-- Form List -->
-        <div *ngIf="parsedForms.length > 0" class="form-list">
-          <h3>Parsed Forms</h3>
-          <div *ngFor="let form of parsedForms" class="form-item" (click)="showFormDetails(form)">
+        <div *ngIf="filteredForms.length > 0" class="form-list">
+          <div class="form-list-header center-header">
+            <h3>Parsed Forms</h3>
+          </div>
+          <div class="delete-all-wrapper">
+            <button mat-raised-button color="warn" (click)="confirmDeleteAllForms()" [disabled]="isDeletingAll || filteredForms.length === 0">
+              <mat-icon>delete_sweep</mat-icon>
+              {{isDeletingAll ? 'Deleting...' : 'Delete All Forms'}}
+            </button>
+          </div>
+          <div *ngFor="let form of filteredForms" class="form-item" (click)="showFormDetails(form)">
             <div class="form-info">
               <mat-icon>description</mat-icon>
               <div class="form-details">
@@ -241,9 +249,7 @@ import { FormValidation } from '../../models/form.model';
         }
 
         .mat-mdc-card-content {
-          display: flex;
-          flex-direction: column;
-          height: 100%;
+          display: block;
           padding: 0;
         }
 
@@ -277,15 +283,13 @@ import { FormValidation } from '../../models/form.model';
     }
 
     .upload-area {
+      margin-top: 32px;
+      margin-bottom: 80px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      padding: 2rem;
       color: white;
       text-align: center;
-      flex: 1;
-      min-height: 200px;
 
       .upload-icon {
         font-size: 64px;
@@ -489,15 +493,13 @@ import { FormValidation } from '../../models/form.model';
     }
 
     .form-list {
-      padding: 1rem;
-      max-height: 300px;
-      overflow-y: auto;
-
-      h3 {
-        margin: 0 0 1rem;
-        font-size: 1.1rem;
-        color: white;
-      }
+      border-top: 2px dashed #b39ddb;
+      border-radius: 0;
+      border-right: none;
+      border-bottom: none;
+      border-left: none;
+      padding: 16px;
+      margin-bottom: 24px;
     }
 
     .form-item {
@@ -819,9 +821,21 @@ import { FormValidation } from '../../models/form.model';
         }
       }
     }
+
+    .delete-all-wrapper {
+      display: flex;
+      justify-content: center;
+      padding-bottom: 24px;
+    }
+
+    .center-header {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
   `]
 })
-export class UploadComponent implements OnInit {
+export class UploadComponent implements OnInit, OnChanges {
   isDragOver = false;
   isUploading = false;
   isValidating = false;
@@ -829,12 +843,21 @@ export class UploadComponent implements OnInit {
   selectedFile: File | null = null;
   validationResult: FormValidation | null = null;
   parsedForms: FormData[] = [];
+  filteredForms: FormData[] = [];
   selectedFormDetails: FormDetails | null = null;
+  isDeletingAll = false;
+  @Input() searchQuery: string = '';
 
   constructor(private formService: FormService) {}
 
   ngOnInit(): void {
     this.loadForms();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['searchQuery']) {
+      this.applySearch();
+    }
   }
 
   onDragOver(event: DragEvent) {
@@ -927,11 +950,23 @@ export class UploadComponent implements OnInit {
     this.formService.getAllForms().subscribe({
       next: (response) => {
         this.parsedForms = response.forms;
+        this.applySearch();
       },
       error: (error: any) => {
         console.error('Failed to load forms:', error);
       }
     });
+  }
+
+  applySearch(): void {
+    const query = this.searchQuery.trim().toLowerCase();
+    if (!query) {
+      this.filteredForms = this.parsedForms;
+    } else {
+      this.filteredForms = this.parsedForms.filter(form =>
+        form.title && form.title.toLowerCase().includes(query)
+      );
+    }
   }
 
   deleteForm(form: FormData, event: Event): void {
@@ -972,5 +1007,27 @@ export class UploadComponent implements OnInit {
     return this.selectedFormDetails.options.filter(option =>
       option.order === question.order
     );
+  }
+
+  async deleteAllForms() {
+    if (this.isDeletingAll || this.parsedForms.length === 0) return;
+    this.isDeletingAll = true;
+    this.formService.deleteAllForms().subscribe({
+      next: () => {
+        this.loadForms();
+        this.isDeletingAll = false;
+      },
+      error: () => {
+        this.isDeletingAll = false;
+      }
+    });
+  }
+
+  confirmDeleteAllForms() {
+    if (this.isDeletingAll || this.parsedForms.length === 0) return;
+    const confirmed = window.confirm('Are you sure you want to delete ALL forms? This action cannot be undone.');
+    if (confirmed) {
+      this.deleteAllForms();
+    }
   }
 }

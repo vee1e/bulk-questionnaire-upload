@@ -23,9 +23,9 @@ import { UploadComponent } from './components/upload/upload.component';
     <div class="app-container">
       <app-navbar></app-navbar>
       <main class="main-content">
-        <app-search></app-search>
+        <app-search (search)="onSearch($event)"></app-search>
         <div class="content-grid">
-          <app-upload></app-upload>
+          <app-upload [searchQuery]="searchQuery"></app-upload>
         </div>
         <router-outlet></router-outlet>
       </main>
@@ -55,4 +55,9 @@ import { UploadComponent } from './components/upload/upload.component';
 })
 export class AppComponent {
   title = 'mForm Upload';
+  searchQuery = '';
+
+  onSearch(query: string) {
+    this.searchQuery = query;
+  }
 }

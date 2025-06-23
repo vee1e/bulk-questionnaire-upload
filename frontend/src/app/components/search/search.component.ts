@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -23,10 +23,6 @@ import { MatIconModule } from '@angular/material/icon';
                placeholder="Search forms..."
                [(ngModel)]="searchQuery"
                (input)="onSearch()">
-        <button mat-icon-button matSuffix *ngIf="searchQuery"
-                (click)="clearSearch()">
-          <mat-icon>close</mat-icon>
-        </button>
       </mat-form-field>
     </div>
   `,
@@ -72,9 +68,10 @@ import { MatIconModule } from '@angular/material/icon';
 })
 export class SearchComponent {
   searchQuery = '';
+  @Output() search = new EventEmitter<string>();
 
   onSearch(): void {
-    // TODO: Implement search functionality
+    this.search.emit(this.searchQuery);
   }
 
   clearSearch(): void {

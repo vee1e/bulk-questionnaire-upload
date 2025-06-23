@@ -123,5 +123,19 @@ async def delete_form(form_id: str):
         logger.error(f"Error deleting form: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.delete("/api/forms")
+async def delete_all_forms():
+    """
+    Delete all forms and all related data
+    """
+    try:
+        success = await db_service.delete_all_forms()
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to delete all forms")
+        return {"message": "All forms deleted successfully"}
+    except Exception as e:
+        logger.error(f"Error deleting all forms: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
