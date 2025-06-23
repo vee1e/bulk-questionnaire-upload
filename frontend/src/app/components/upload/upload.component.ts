@@ -18,8 +18,27 @@ import { FormValidation } from '../../models/form.model';
     MatProgressBarModule
   ],
   template: `
-    <div *ngIf="isUploading" class="global-upload-progress">
-      <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+    <div *ngIf="isValidating || isUploading || isDeletingAll" class="global-upload-progress"
+         [ngStyle]="isValidating ? {'background': '#665c00'} : isUploading ? {'background': '#1b5e20'} : isDeletingAll ? {'background': '#b71c1c'} : {}">
+      <div class="progress-counter" *ngIf="isValidating">
+        Validating {{validationProgress.current}}/{{validationProgress.total}}...
+      </div>
+      <div class="progress-counter" *ngIf="isUploading">
+        Processing {{uploadProgress.current}}/{{uploadProgress.total}}...
+      </div>
+      <div class="progress-counter" *ngIf="isDeletingAll">
+        Deleting {{deleteProgress.current}}/{{deleteProgress.total}}...
+      </div>
+      <mat-progress-bar 
+        color="primary"
+        [ngClass]="{
+          'bar-yellow': isValidating,
+          'bar-green': isUploading,
+          'bar-red': isDeletingAll
+        }"
+        [ngStyle]="isValidating ? {'background': '#FFD600'} : isUploading ? {'background': '#4CAF50'} : isDeletingAll ? {'background': '#F44336'} : {}"
+        mode="indeterminate">
+      </mat-progress-bar>
     </div>
     <mat-card class="upload-card"
               [class.dragover]="isDragOver"
@@ -638,10 +657,20 @@ import { FormValidation } from '../../models/form.model';
 
     .global-upload-progress {
       position: fixed;
-      top: 0;
+      bottom: 0;
       left: 0;
       width: 100vw;
       z-index: 4000;
+      background: rgba(35, 35, 74, 0.95);
+      color: white;
+      text-align: center;
+      padding: 0.5rem 0 0.2rem 0;
+      box-shadow: 0 -2px 8px rgba(0,0,0,0.15);
+    }
+    .progress-counter {
+      font-size: 1.1rem;
+      font-weight: 500;
+      margin-bottom: 0.2rem;
     }
   `]
 })
@@ -657,6 +686,9 @@ export class UploadComponent implements OnInit, OnChanges {
   validationResults: { [filename: string]: { valid: boolean; message: string } } = {};
   isValidating = false;
   allValid = false;
+  validationProgress = { current: 0, total: 0 };
+  uploadProgress = { current: 0, total: 0 };
+  deleteProgress = { current: 0, total: 0 };
 
   constructor(private formService: FormService) {}
 
@@ -705,6 +737,7 @@ export class UploadComponent implements OnInit, OnChanges {
     if (this.selectedFiles.length === 0) return;
     this.isValidating = true;
     this.validationResults = {};
+    this.validationProgress = { current: 0, total: this.selectedFiles.length };
     let validated = 0;
     let validCount = 0;
     this.selectedFiles.forEach(file => {
@@ -712,6 +745,7 @@ export class UploadComponent implements OnInit, OnChanges {
         next: (result) => {
           this.validationResults[file.name] = { valid: result.valid, message: result.message };
           validated++;
+          this.validationProgress.current = validated;
           if (result.valid) validCount++;
           if (validated === this.selectedFiles.length) {
             this.isValidating = false;
@@ -721,6 +755,7 @@ export class UploadComponent implements OnInit, OnChanges {
         error: (error: any) => {
           this.validationResults[file.name] = { valid: false, message: 'Validation failed' };
           validated++;
+          this.validationProgress.current = validated;
           if (validated === this.selectedFiles.length) {
             this.isValidating = false;
             this.allValid = validCount === this.selectedFiles.length;
@@ -733,19 +768,33 @@ export class UploadComponent implements OnInit, OnChanges {
   uploadFiles() {
     if (this.selectedFiles.length === 0 || !this.allValid) return;
     this.isUploading = true;
-    this.formService.uploadFiles(this.selectedFiles).subscribe({
-      next: () => {
+    this.uploadProgress = { current: 0, total: this.selectedFiles.length };
+    let uploaded = 0;
+    // Simulate per-file upload progress if possible
+    const uploadNext = (index: number) => {
+      if (index >= this.selectedFiles.length) {
         this.isUploading = false;
         this.selectedFiles = [];
         this.validationResults = {};
         this.allValid = false;
         this.loadForms();
-      },
-      error: (error: any) => {
-        this.isUploading = false;
-        console.error('Upload failed:', error);
+        return;
       }
-    });
+      this.formService.uploadFiles([this.selectedFiles[index]]).subscribe({
+        next: () => {
+          uploaded++;
+          this.uploadProgress.current = uploaded;
+          uploadNext(index + 1);
+        },
+        error: (error: any) => {
+          uploaded++;
+          this.uploadProgress.current = uploaded;
+          console.error('Upload failed:', error);
+          uploadNext(index + 1);
+        }
+      });
+    };
+    uploadNext(0);
   }
 
   private resetUploadState(): void {
@@ -820,15 +869,28 @@ export class UploadComponent implements OnInit, OnChanges {
   async deleteAllForms() {
     if (this.isDeletingAll || this.parsedForms.length === 0) return;
     this.isDeletingAll = true;
-    this.formService.deleteAllForms().subscribe({
-      next: () => {
+    this.deleteProgress = { current: 0, total: this.parsedForms.length };
+    let deleted = 0;
+    const deleteNext = (index: number) => {
+      if (index >= this.parsedForms.length) {
+        this.isDeletingAll = false;
         this.loadForms();
-        this.isDeletingAll = false;
-      },
-      error: () => {
-        this.isDeletingAll = false;
+        return;
       }
-    });
+      this.formService.deleteForm(this.parsedForms[index].id).subscribe({
+        next: () => {
+          deleted++;
+          this.deleteProgress.current = deleted;
+          deleteNext(index + 1);
+        },
+        error: () => {
+          deleted++;
+          this.deleteProgress.current = deleted;
+          deleteNext(index + 1);
+        }
+      });
+    };
+    deleteNext(0);
   }
 
   confirmDeleteAllForms() {
