@@ -7,6 +7,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { FormService, FormData, FormDetails, OptionData } from '../../services/form.service';
 import { FormValidation } from '../../models/form.model';
+import { FormPreviewService } from '../../services/form-preview.service';
 
 @Component({
   selector: 'app-upload',
@@ -103,6 +104,7 @@ import { FormValidation } from '../../models/form.model';
           </div>
           <div *ngFor="let form of filteredForms" class="form-item"
                [class.loading]="loadingFormId === form.id"
+               [class.previewed]="currentPreviewedFormId === form.id"
                (click)="showFormDetails(form)">
             <div class="form-info">
               <mat-icon *ngIf="loadingFormId !== form.id">description</mat-icon>
@@ -117,81 +119,6 @@ import { FormValidation } from '../../models/form.model';
               <button mat-icon-button color="warn" (click)="deleteForm(form, $event)" [disabled]="loadingFormId === form.id">
                 <mat-icon>delete</mat-icon>
               </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Form Details Modal -->
-        <div *ngIf="selectedFormDetails" class="form-details-modal">
-          <div class="modal-overlay" (click)="closeFormDetails()"></div>
-          <div class="modal-content">
-            <div class="modal-header">
-              <h2>{{selectedFormDetails.form.title}}</h2>
-              <button mat-icon-button (click)="closeFormDetails()">
-                <mat-icon>close</mat-icon>
-              </button>
-            </div>
-
-            <div class="modal-body">
-              <div class="form-info-section">
-                <h3>Form Information</h3>
-                <div class="info-grid">
-                  <div class="info-item">
-                    <strong>Language:</strong> {{selectedFormDetails.form.language}}
-                  </div>
-                  <div class="info-item">
-                    <strong>Version:</strong> {{selectedFormDetails.form.version}}
-                  </div>
-                  <div class="info-item">
-                    <strong>Created:</strong> {{selectedFormDetails.form.created_at | date:'medium'}}
-                  </div>
-                  <div class="info-item">
-                    <strong>Questions:</strong> {{selectedFormDetails.questions_count}}
-                  </div>
-                  <div class="info-item">
-                    <strong>Options:</strong> {{selectedFormDetails.options_count}}
-                  </div>
-                </div>
-              </div>
-
-              <div class="questions-section">
-                <h3>Questions ({{selectedFormDetails.questions.length}})</h3>
-                <div class="questions-list">
-                  <div *ngFor="let question of selectedFormDetails.questions; let i = index" class="question-item">
-                    <div class="question-header">
-                      <span class="question-number">{{i + 1}}</span>
-                      <h4>{{question.title}}</h4>
-                      <span class="question-type">{{question.input_type}}</span>
-                    </div>
-                    <div class="question-details">
-                      <p><strong>Order:</strong> {{question.order}}</p>
-                      <p><strong>View Sequence:</strong> {{question.view_sequence}}</p>
-                    </div>
-
-                    <div *ngIf="getQuestionOptions(question.id).length > 0" class="question-options">
-                      <h5>Options ({{getQuestionOptions(question.id).length}})</h5>
-                      <div class="options-list">
-                        <div *ngFor="let option of getQuestionOptions(question.id)" class="option-item">
-                          <span class="option-id">{{option.option_id}}</span>
-                          <span class="option-label">{{option.label}}</span>
-                          <span class="option-order">Order: {{option.order}}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div *ngIf="selectedFormDetails.options.length > 0" class="all-options-section">
-                <h3>All Options ({{selectedFormDetails.options.length}})</h3>
-                <div class="options-list">
-                  <div *ngFor="let option of selectedFormDetails.options" class="option-item">
-                    <span class="option-id">{{option.option_id}}</span>
-                    <span class="option-label">{{option.label}}</span>
-                    <span class="option-order">Order: {{option.order}}</span>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -336,6 +263,17 @@ import { FormValidation } from '../../models/form.model';
         opacity: 0.6;
         pointer-events: none;
       }
+
+      &.previewed {
+        background: rgba(63, 81, 181, 0.2);
+        border: 2px solid #3f51b5;
+        box-shadow: 0 0 12px rgba(63, 81, 181, 0.3);
+        transform: scale(1.009);
+
+        &:hover {
+          background: rgba(63, 81, 181, 0.25);
+        }
+      }
     }
 
     .form-info {
@@ -365,296 +303,6 @@ import { FormValidation } from '../../models/form.model';
         margin: 0;
         font-size: 0.875rem;
         color: rgba(255, 255, 255, 0.7);
-      }
-    }
-
-    .form-details-modal {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      z-index: 3000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      pointer-events: none;
-    }
-
-    .form-details-modal .modal-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: rgba(0,0,0,0.0);
-      z-index: 3001;
-      pointer-events: auto;
-    }
-    .form-details-modal .modal-content {
-      position: fixed;
-      margin: auto;
-      width: 98vw;
-      max-width: 900px;
-      max-height: 90vh;
-      background: #23234a;
-      color: white;
-      border: 3px solid #3f51b5;
-      border-radius: 22px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.55);
-      z-index: 3002;
-      padding: 2rem;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      pointer-events: auto;
-    }
-
-    .modal-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 1.5rem;
-      padding-bottom: 1rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-
-      h2 {
-        margin: 0;
-        color: white;
-        font-size: 1.5rem;
-        font-weight: 500;
-      }
-
-      button {
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        color: white;
-
-        &:hover {
-          background: rgba(255, 255, 255, 0.2);
-          border-color: rgba(255, 255, 255, 0.3);
-        }
-
-        mat-icon {
-          font-size: 24px;
-          width: 24px;
-          height: 24px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-      }
-    }
-
-    .modal-body {
-      .form-info-section {
-        margin-bottom: 2rem;
-        padding: 1rem;
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 8px;
-
-        h3 {
-          margin: 0 0 1rem;
-          color: white;
-          font-size: 1.2rem;
-          font-weight: 500;
-        }
-
-        .info-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-          gap: 1rem;
-
-          .info-item {
-            padding: 0.5rem;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 4px;
-
-            strong {
-              display: block;
-              margin-bottom: 0.25rem;
-              color: rgba(255, 255, 255, 0.8);
-              font-size: 0.875rem;
-            }
-
-            span {
-              color: white;
-              font-weight: 500;
-            }
-          }
-        }
-      }
-
-      .questions-section {
-        margin-top: 2rem;
-
-        h3 {
-          margin: 0 0 1rem;
-          color: white;
-          font-size: 1.2rem;
-          font-weight: 500;
-        }
-
-        .questions-list {
-          .question-item {
-            margin-bottom: 1rem;
-            padding: 1rem;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 8px;
-            border-left: 3px solid #3f51b5;
-
-            .question-header {
-              display: flex;
-              align-items: center;
-              gap: 1rem;
-              margin-bottom: 0.5rem;
-
-              .question-number {
-                background: #3f51b5;
-                color: white;
-                width: 24px;
-                height: 24px;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 0.75rem;
-                font-weight: bold;
-              }
-
-              h4 {
-                margin: 0;
-                color: white;
-                font-size: 1rem;
-                font-weight: 500;
-                flex: 1;
-              }
-
-              .question-type {
-                padding: 0.25rem 0.5rem;
-                background: rgba(255, 255, 255, 0.1);
-                border-radius: 4px;
-                font-size: 0.75rem;
-                font-weight: 500;
-                color: rgba(255, 255, 255, 0.8);
-              }
-            }
-
-            .question-details {
-              margin-bottom: 0.5rem;
-
-              p {
-                margin: 0.25rem 0;
-                color: rgba(255, 255, 255, 0.7);
-                font-size: 0.875rem;
-
-                strong {
-                  color: rgba(255, 255, 255, 0.9);
-                }
-              }
-            }
-
-            .question-options {
-              margin-top: 0.5rem;
-
-              h5 {
-                margin: 0 0 0.5rem;
-                color: rgba(255, 255, 255, 0.8);
-                font-size: 0.875rem;
-              }
-
-              .options-list {
-                .option-item {
-                  display: flex;
-                  align-items: center;
-                  gap: 0.5rem;
-                  margin-bottom: 0.25rem;
-                  padding: 0.25rem 0.5rem;
-                  background: rgba(255, 255, 255, 0.03);
-                  border-radius: 4px;
-
-                  .option-id {
-                    background: rgba(255, 255, 255, 0.1);
-                    color: white;
-                    padding: 0.125rem 0.375rem;
-                    border-radius: 3px;
-                    font-size: 0.75rem;
-                    font-weight: bold;
-                    min-width: 20px;
-                    text-align: center;
-                  }
-
-                  .option-label {
-                    flex: 1;
-                    color: white;
-                    font-size: 0.875rem;
-                  }
-
-                  .option-order {
-                    font-size: 0.75rem;
-                    color: rgba(255, 255, 255, 0.5);
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-
-      .all-options-section {
-        margin-top: 2rem;
-        padding: 1rem;
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 8px;
-
-        h3 {
-          margin: 0 0 1rem;
-          color: white;
-          font-size: 1.2rem;
-          font-weight: 500;
-        }
-
-        .options-list {
-          .option-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin-bottom: 0.5rem;
-            padding: 0.5rem;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 4px;
-
-            .option-id {
-              background: rgba(255, 255, 255, 0.1);
-              color: white;
-              padding: 0.25rem 0.5rem;
-              border-radius: 3px;
-              font-size: 0.75rem;
-              font-weight: bold;
-              min-width: 30px;
-              text-align: center;
-            }
-
-            .option-label {
-              flex: 1;
-              color: white;
-              font-size: 0.875rem;
-            }
-
-            .option-order {
-              font-size: 0.75rem;
-              color: rgba(255, 255, 255, 0.5);
-            }
-          }
-        }
       }
     }
 
@@ -699,7 +347,6 @@ export class UploadComponent implements OnInit, OnChanges {
   selectedFiles: File[] = [];
   parsedForms: FormData[] = [];
   filteredForms: FormData[] = [];
-  selectedFormDetails: FormDetails | null = null;
   isDeletingAll = false;
   @Input() searchQuery: string = '';
   validationResults: { [filename: string]: { valid: boolean; message: string } } = {};
@@ -709,24 +356,59 @@ export class UploadComponent implements OnInit, OnChanges {
   uploadProgress = { current: 0, total: 0 };
   deleteProgress = { current: 0, total: 0 };
   loadingFormId: string | null = null;
+  currentPreviewedFormId: string | null = null;
 
-  constructor(private formService: FormService) {}
-
-  @HostListener('document:keydown.escape')
-  onEscapeKey(): void {
-    if (this.selectedFormDetails) {
-      this.closeFormDetails();
-    }
-  }
+  constructor(private formService: FormService, private formPreviewService: FormPreviewService) {}
 
   ngOnInit(): void {
     this.loadForms();
+
+    // Subscribe to currently previewed form
+    this.formPreviewService.currentPreviewedFormId$.subscribe(formId => {
+      this.currentPreviewedFormId = formId;
+    });
   }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['searchQuery']) {
       this.applySearch();
     }
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  onKeyDown(event: KeyboardEvent): void {
+    if (event.ctrlKey || event.metaKey) {
+      if (event.key === 'j') {
+        event.preventDefault();
+        this.navigateToNextForm();
+      } else if (event.key === 'k') {
+        event.preventDefault();
+        this.navigateToPreviousForm();
+      }
+    }
+  }
+
+  private navigateToNextForm(): void {
+    if (this.filteredForms.length === 0) return;
+
+    const currentIndex = this.getCurrentFormIndex();
+    const nextIndex = (currentIndex + 1) % this.filteredForms.length;
+    this.showFormDetails(this.filteredForms[nextIndex]);
+  }
+
+  private navigateToPreviousForm(): void {
+    if (this.filteredForms.length === 0) return;
+
+    const currentIndex = this.getCurrentFormIndex();
+    const previousIndex = currentIndex === 0 ? this.filteredForms.length - 1 : currentIndex - 1;
+    this.showFormDetails(this.filteredForms[previousIndex]);
+  }
+
+  private getCurrentFormIndex(): number {
+    if (!this.currentPreviewedFormId) return 0;
+
+    const index = this.filteredForms.findIndex(form => form.id === this.currentPreviewedFormId);
+    return index >= 0 ? index : 0;
   }
 
   onDragOver(event: DragEvent) {
@@ -869,31 +551,18 @@ export class UploadComponent implements OnInit, OnChanges {
 
   showFormDetails(form: FormData): void {
     this.loadingFormId = form.id;
+    this.formPreviewService.setLoadingFormId(form.id);
     this.formService.getFormById(form.id).subscribe({
       next: (response: FormDetails) => {
-        this.selectedFormDetails = response;
+        this.formPreviewService.setSelectedFormDetails(response);
         this.loadingFormId = null;
       },
       error: (error: any) => {
         console.error('Failed to load form details:', error);
         this.loadingFormId = null;
+        this.formPreviewService.setLoadingFormId(null);
       }
     });
-  }
-
-  closeFormDetails(): void {
-    this.selectedFormDetails = null;
-  }
-
-  getQuestionOptions(questionId: string): OptionData[] {
-    if (!this.selectedFormDetails) return [];
-
-    const question = this.selectedFormDetails.questions.find(q => q.id === questionId);
-    if (!question) return [];
-
-    return this.selectedFormDetails.options.filter(option =>
-      option.order === question.order
-    );
   }
 
   async deleteAllForms() {
