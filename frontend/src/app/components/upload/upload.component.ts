@@ -1,9 +1,10 @@
-import { Component, OnInit, Input, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, OnInit, Input, OnChanges, SimpleChanges, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { FormService, FormData, FormDetails, OptionData } from '../../services/form.service';
 import { FormValidation } from '../../models/form.model';
 
@@ -15,7 +16,8 @@ import { FormValidation } from '../../models/form.model';
     MatCardModule,
     MatButtonModule,
     MatIconModule,
-    MatProgressBarModule
+    MatProgressBarModule,
+    MatProgressSpinnerModule
   ],
   template: `
     <div *ngIf="isValidating || isUploading || isDeletingAll" class="global-upload-progress"
@@ -29,7 +31,7 @@ import { FormValidation } from '../../models/form.model';
       <div class="progress-counter" *ngIf="isDeletingAll">
         Deleting {{deleteProgress.current}}/{{deleteProgress.total}}...
       </div>
-      <mat-progress-bar 
+      <mat-progress-bar
         color="primary"
         [ngClass]="{
           'bar-yellow': isValidating,
@@ -99,9 +101,12 @@ import { FormValidation } from '../../models/form.model';
               {{isDeletingAll ? 'Deleting...' : 'Delete All Forms'}}
             </button>
           </div>
-          <div *ngFor="let form of filteredForms" class="form-item" (click)="showFormDetails(form)">
+          <div *ngFor="let form of filteredForms" class="form-item"
+               [class.loading]="loadingFormId === form.id"
+               (click)="showFormDetails(form)">
             <div class="form-info">
-              <mat-icon>description</mat-icon>
+              <mat-icon *ngIf="loadingFormId !== form.id">description</mat-icon>
+              <mat-spinner *ngIf="loadingFormId === form.id" diameter="24" class="loading-spinner"></mat-spinner>
               <div class="form-details">
                 <h4>{{form.title}}</h4>
                 <p>{{form.language}} • {{form.version}} • {{form.created_at | date:'short'}}</p>
@@ -109,7 +114,7 @@ import { FormValidation } from '../../models/form.model';
             </div>
 
             <div class="form-actions">
-              <button mat-icon-button color="warn" (click)="deleteForm(form, $event)">
+              <button mat-icon-button color="warn" (click)="deleteForm(form, $event)" [disabled]="loadingFormId === form.id">
                 <mat-icon>delete</mat-icon>
               </button>
             </div>
@@ -325,6 +330,12 @@ import { FormValidation } from '../../models/form.model';
       &:hover {
         background: rgba(255, 255, 255, 0.1);
       }
+
+      &.loading {
+        background: rgba(255, 255, 255, 0.18);
+        opacity: 0.6;
+        pointer-events: none;
+      }
     }
 
     .form-info {
@@ -334,6 +345,12 @@ import { FormValidation } from '../../models/form.model';
 
       mat-icon {
         color: rgba(255, 255, 255, 0.7);
+      }
+
+      .loading-spinner {
+        ::ng-deep circle {
+          stroke: rgba(255, 255, 255, 0.7);
+        }
       }
     }
 
@@ -363,26 +380,28 @@ import { FormValidation } from '../../models/form.model';
       justify-content: center;
       pointer-events: none;
     }
+
     .form-details-modal .modal-overlay {
       position: absolute;
       top: 0;
       left: 0;
       width: 100vw;
       height: 100vh;
-      background: rgba(0,0,0,0.5);
+      background: rgba(0,0,0,0.0);
       z-index: 3001;
       pointer-events: auto;
     }
     .form-details-modal .modal-content {
-      position: relative;
+      position: fixed;
       margin: auto;
       width: 98vw;
       max-width: 900px;
       max-height: 90vh;
       background: #23234a;
       color: white;
-      border-radius: 12px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+      border: 3px solid #3f51b5;
+      border-radius: 22px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.55);
       z-index: 3002;
       padding: 2rem;
       overflow-y: auto;
@@ -689,8 +708,16 @@ export class UploadComponent implements OnInit, OnChanges {
   validationProgress = { current: 0, total: 0 };
   uploadProgress = { current: 0, total: 0 };
   deleteProgress = { current: 0, total: 0 };
+  loadingFormId: string | null = null;
 
   constructor(private formService: FormService) {}
+
+  @HostListener('document:keydown.escape')
+  onEscapeKey(): void {
+    if (this.selectedFormDetails) {
+      this.closeFormDetails();
+    }
+  }
 
   ngOnInit(): void {
     this.loadForms();
@@ -841,12 +868,15 @@ export class UploadComponent implements OnInit, OnChanges {
   }
 
   showFormDetails(form: FormData): void {
+    this.loadingFormId = form.id;
     this.formService.getFormById(form.id).subscribe({
       next: (response: FormDetails) => {
         this.selectedFormDetails = response;
+        this.loadingFormId = null;
       },
       error: (error: any) => {
         console.error('Failed to load form details:', error);
+        this.loadingFormId = null;
       }
     });
   }
