@@ -34,10 +34,10 @@ import { Subscription } from 'rxjs';
     </mat-toolbar>
 
     <!-- Form Preview Panel -->
-    <div class="form-preview-panel" 
+    <div class="form-preview-panel"
          [class.open]="selectedFormDetails"
          *ngIf="selectedFormDetails">
-      
+
       <!-- Form Details -->
       <div class="preview-content">
         <div class="preview-header">
@@ -147,7 +147,7 @@ import { Subscription } from 'rxjs';
     .close-preview-btn {
       background: rgba(255, 255, 255, 0.1);
       color: white;
-      
+
       &:hover {
         background: rgba(255, 255, 255, 0.2);
       }
