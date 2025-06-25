@@ -6,7 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { FormService, FormData, FormDetails, OptionData } from '../../services/form.service';
-import { FormValidation } from '../../models/form.model';
+import { FormValidation, ValidationError, ValidationWarning } from '../../models/form.model';
 import { FormPreviewService } from '../../services/form-preview.service';
 
 @Component({
@@ -82,12 +82,47 @@ import { FormPreviewService } from '../../services/form-preview.service';
             </button>
           </div>
           <div class="selected-file" *ngFor="let file of selectedFiles">
-            <mat-icon>description</mat-icon>
-            <span>{{file.name}}</span>
-            <span *ngIf="validationResults[file.name]" [ngClass]="{'valid': validationResults[file.name].valid, 'invalid': !validationResults[file.name].valid}">
-              {{validationResults[file.name].valid ? '✓' : '✗'}}
-              {{validationResults[file.name].message}}
-            </span>
+            <div class="file-info">
+              <mat-icon>description</mat-icon>
+              <span class="file-name">{{file.name}}</span>
+              <span *ngIf="validationResults[file.name]"
+                    [ngClass]="{'valid': validationResults[file.name].valid, 'invalid': !validationResults[file.name].valid}"
+                    class="validation-status">
+                {{validationResults[file.name].message}}
+              </span>
+            </div>
+
+            <!-- Detailed Error Messages -->
+            <div *ngIf="validationResults[file.name] && validationResults[file.name].errors && validationResults[file.name].errors!.length > 0" class="validation-details">
+              <div class="error-section">
+                <h5 class="error-title">Errors ({{validationResults[file.name].errors!.length}}):</h5>
+                <div class="validation-item error" *ngFor="let error of validationResults[file.name].errors">
+                  <div class="validation-header">
+                    <span class="validation-type">{{getErrorTypeLabel(error.type)}}</span>
+                    <span class="validation-location">{{error.location}}</span>
+                    <span *ngIf="error.row" class="validation-position">Row {{error.row}}</span>
+                    <span *ngIf="error.column" class="validation-position">Column: {{error.column}}</span>
+                  </div>
+                  <div class="validation-message">{{error.message}}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Detailed Warning Messages -->
+            <div *ngIf="validationResults[file.name] && validationResults[file.name].warnings && validationResults[file.name].warnings!.length > 0" class="validation-details">
+              <div class="warning-section">
+                <h5 class="warning-title">⚠️ Warnings ({{validationResults[file.name].warnings!.length}}):</h5>
+                <div class="validation-item warning" *ngFor="let warning of validationResults[file.name].warnings">
+                  <div class="validation-header">
+                    <span class="validation-type">{{getWarningTypeLabel(warning.type)}}</span>
+                    <span class="validation-location">{{warning.location}}</span>
+                    <span *ngIf="warning.row" class="validation-position">Row {{warning.row}}</span>
+                    <span *ngIf="warning.column" class="validation-position">Column: {{warning.column}}</span>
+                  </div>
+                  <div class="validation-message">{{warning.message}}</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -213,16 +248,118 @@ import { FormPreviewService } from '../../services/form-preview.service';
       border-top: 1px solid rgba(255, 255, 255, 0.1);
 
       .selected-file {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
         margin-bottom: 1rem;
-        padding: 0.5rem;
+        padding: 0.75rem;
         background: rgba(255, 255, 255, 0.05);
-        border-radius: 4px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
 
-        mat-icon {
-          color: rgba(255, 255, 255, 0.7);
+        .file-info {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          margin-bottom: 0.5rem;
+
+          mat-icon {
+            color: rgba(255, 255, 255, 0.7);
+          }
+
+          .file-name {
+            flex: 1;
+            font-weight: 500;
+          }
+
+          .validation-status {
+            padding: 0.25rem 0.5rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            margin-left: 0.5rem;
+          }
+
+          .valid {
+            color: #4CAF50;
+            background: rgba(76, 175, 80, 0.1);
+            border: 1px solid rgba(76, 175, 80, 0.3);
+          }
+
+          .invalid {
+            color: white;
+            background: #F44336;
+            border: 1px solid #F44336;
+          }
+        }
+
+        .validation-details {
+          margin-top: 0.75rem;
+          padding-top: 0.75rem;
+          border-top: 1px solid rgba(255, 255, 255, 0.1);
+
+          .error-section, .warning-section {
+            margin-bottom: 0.5rem;
+
+            .error-title, .warning-title {
+              margin: 0 0 0.5rem 0;
+              font-size: 0.875rem;
+              font-weight: 600;
+            }
+
+            .error-title {
+              color: #F44336;
+            }
+
+            .warning-title {
+              color: #FF9800;
+            }
+
+            .validation-item {
+              margin-bottom: 0.5rem;
+              padding: 0.5rem;
+              border-radius: 4px;
+              font-size: 0.8rem;
+
+              &.error {
+                background: rgba(244, 67, 54, 0.1);
+                border-left: 3px solid #F44336;
+              }
+
+              &.warning {
+                background: rgba(255, 152, 0, 0.1);
+                border-left: 3px solid #FF9800;
+              }
+
+              .validation-header {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+                margin-bottom: 0.25rem;
+
+                .validation-type {
+                  background: rgba(255, 255, 255, 0.1);
+                  padding: 0.125rem 0.375rem;
+                  border-radius: 12px;
+                  font-size: 0.7rem;
+                  font-weight: 600;
+                  text-transform: uppercase;
+                }
+
+                .validation-location {
+                  color: rgba(255, 255, 255, 0.8);
+                  font-weight: 500;
+                }
+
+                .validation-position {
+                  color: rgba(255, 255, 255, 0.6);
+                  font-size: 0.7rem;
+                }
+              }
+
+              .validation-message {
+                color: rgba(255, 255, 255, 0.9);
+                line-height: 1.3;
+              }
+            }
+          }
         }
       }
 
@@ -349,7 +486,7 @@ export class UploadComponent implements OnInit, OnChanges {
   filteredForms: FormData[] = [];
   isDeletingAll = false;
   @Input() searchQuery: string = '';
-  validationResults: { [filename: string]: { valid: boolean; message: string } } = {};
+  validationResults: { [filename: string]: FormValidation } = {};
   isValidating = false;
   allValid = false;
   validationProgress = { current: 0, total: 0 };
@@ -452,7 +589,7 @@ export class UploadComponent implements OnInit, OnChanges {
     this.selectedFiles.forEach(file => {
       this.formService.validateFile(file).subscribe({
         next: (result) => {
-          this.validationResults[file.name] = { valid: result.valid, message: result.message };
+          this.validationResults[file.name] = result;
           validated++;
           this.validationProgress.current = validated;
           if (result.valid) validCount++;
@@ -462,7 +599,12 @@ export class UploadComponent implements OnInit, OnChanges {
           }
         },
         error: (error: any) => {
-          this.validationResults[file.name] = { valid: false, message: 'Validation failed' };
+          this.validationResults[file.name] = {
+            valid: false,
+            message: 'Validation failed',
+            errors: [{ type: 'file_error', message: 'Validation failed', location: 'file' }],
+            warnings: []
+          };
           validated++;
           this.validationProgress.current = validated;
           if (validated === this.selectedFiles.length) {
@@ -598,5 +740,32 @@ export class UploadComponent implements OnInit, OnChanges {
     if (confirmed) {
       this.deleteAllForms();
     }
+  }
+
+  getErrorTypeLabel(type: string): string {
+    const labels: { [key: string]: string } = {
+      'missing_data': 'Missing Data',
+      'missing_value': 'Missing Value',
+      'missing_sheet': 'Missing Sheet',
+      'missing_column': 'Missing Column',
+      'invalid_value': 'Invalid Value',
+      'invalid_type': 'Invalid Type',
+      'duplicate_value': 'Duplicate Value',
+      'unsupported_question_type': 'Unsupported Question Type',
+      'missing_reference': 'Missing Reference',
+      'orphaned_reference': 'Orphaned Reference',
+      'file_error': 'File Error'
+    };
+    return labels[type] || type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+  }
+
+  getWarningTypeLabel(type: string): string {
+    const labels: { [key: string]: string } = {
+      'invalid_language': 'Invalid Language',
+      'extra_data': 'Extra Data',
+      'long_value': 'Long Value',
+      'duplicate_value': 'Duplicate Value'
+    };
+    return labels[type] || type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
   }
 }

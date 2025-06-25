@@ -1,6 +1,20 @@
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 
+class ValidationError(BaseModel):
+    type: str
+    message: str
+    location: str
+    row: Optional[int] = None
+    column: Optional[str] = None
+
+class ValidationWarning(BaseModel):
+    type: str
+    message: str
+    location: str
+    row: Optional[int] = None
+    column: Optional[str] = None
+
 class SheetValidation(BaseModel):
     name: str
     exists: bool
@@ -16,6 +30,8 @@ class FormValidation(BaseModel):
     form_metadata: Optional[Dict[str, Any]] = None
     questions_count: Optional[int] = None
     options_count: Optional[int] = None
+    errors: Optional[List[ValidationError]] = None
+    warnings: Optional[List[ValidationWarning]] = None
 
 class Question(BaseModel):
     type: str
