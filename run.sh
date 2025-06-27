@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PROJECT_ROOT=$(pwd)
+PROJECT_ROOT="/home/verma/Projects/bulk-questionnaire-upload"
 FRONTEND_PATH="$PROJECT_ROOT/frontend"
 BACKEND_PATH="$PROJECT_ROOT/backend"
 SESSION_NAME="dev-project"
