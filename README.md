@@ -161,18 +161,30 @@ mongosh --eval "db.runCommand('ping')"
 
 ## Sample Performance Metrics Output
 
-Below is a real example of metrics collected for uploading 9 forms (each with ~400 questions and 3-10 options per question):
-| Metric                          | Time                           | Description                                      |
-| ------------------------------- | ------------------------------ | ------------------------------------------------ |
-| `delete_all_forms_time`         | 460ms                          | Time to delete all forms                         |
-| `deleted_forms`                 | 9                              | Number of forms deleted                          |
-| `deleted_questions`             | 3570                           | Number of questions deleted                      |
-| `deleted_options`               | 23154                          | Number of options deleted                        |
-| `validation_time_per_form`      | 120-260ms                      | Time to validate each form file                  |
-| `form_process_time`             | 240-1080ms                     | Time to process and save one form                |
-| `questions_process_time`        | 1.6-2.92s                      | Time to process and save all questions in a form |
-| `avg_one_question_process_time` | 4-7ms                          | Average time to process one question             |
-| `avg_one_option_process_time`   | 3.6-4.5ms                      | Average time to process one option               |
-| `all_forms_batch_process_time`  | 15.63s                         | Time to process all forms in the batch           |
-| `total_forms`                   | 9                              | Number of forms processed in the batch           |
-| `avg_one_form_process_time`     | 1.74s                          | Average time to process one form in the batch    |
+Below is a real example of metrics collected for uploading 9 forms (each with ~400 questions and 3-10 options per question) on two different machines:
+
+### HP Laptop 14s Ryzen 5 5500U 16GB RAM/512GB SSD
+
+| Metric                          | Time                    | Description                                      |
+| ------------------------------- | ----------------------- | ------------------------------------------------ |
+| `validation_time_per_form`      | 120-260ms               | Time to validate each form file                  |
+| `form_process_time`             | 240-1080ms              | Time to process and save one form                |
+| `questions_process_time`        | 1.6-2.92s               | Time to process and save all questions in a form |
+| `avg_one_question_process_time` | 4-7ms                   | Average time to process one question             |
+| `avg_one_option_process_time`   | 3.6-4.5ms               | Average time to process one option               |
+| `all_forms_batch_process_time`  | 15.63s                  | Time to process all forms in the batch           |
+| `total_forms`                   | 9                       | Number of forms processed in the batch           |
+| `avg_one_form_process_time`     | 1.74s                   | Average time to process one form in the batch    |
+
+### M3 Pro MacBook Pro 18GB RAM/512GB SSD
+
+| Metric                          | Time                    | Description                                      |
+| ------------------------------- | ----------------------- | ------------------------------------------------ |
+| `validation_time_per_form`      | 51.28ms (46.58-59.83ms) | Time to validate each form file                  |
+| `form_process_time`             | 0.73ms (0.53-1.19ms)    | Time to process and save one form                |
+| `questions_process_time`        | 62.46ms (55.66-73.13ms) | Time to process and save all questions in a form |
+| `avg_one_question_process_time` | 0.15ms (0.14-0.18ms)    | Average time to process one question             |
+| `avg_one_option_process_time`   | 0.15ms (0.14-0.15ms)    | Average time to process one option               |
+| `all_forms_batch_process_time`  | 2.16s (1.96-2.34s)      | Time to process all forms in the batch           |
+| `total_forms`                   | 9                       | Number of forms processed in the batch           |
+| `avg_one_form_process_time`     | 240.3ms (217.25-259.99) | Average time to process one form in the batch    |

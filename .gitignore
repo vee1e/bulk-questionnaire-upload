@@ -21,3 +21,4 @@ dist/
 # personal
 tests/
 project-plans/
+.DS_Store
