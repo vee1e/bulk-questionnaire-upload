@@ -18,14 +18,14 @@ import { Subscription } from 'rxjs';
   ],
   template: `
     <mat-toolbar class="navbar">
-      <div class="navbar-brand">
+      <div class="navbar-brand center-navbar">
         <mat-icon class="brand-icon">description</mat-icon>
         <span>mForm Bulk Upload</span>
       </div>
 
       <div class="navbar-actions" *ngIf="selectedFormDetails">
         <div class="keyboard-shortcuts">
-          <span class="shortcut-hint">Ctrl+J/K to navigate</span>
+          <span class="shortcut-hint">Ctrl+J/K: forms • Ctrl+Shift+J/K: questions • Esc: exit</span>
         </div>
         <button mat-icon-button (click)="closePreview()" class="close-preview-btn">
           <mat-icon>close</mat-icon>
@@ -72,7 +72,7 @@ import { Subscription } from 'rxjs';
           <div class="questions-section">
             <h3>Questions ({{selectedFormDetails.questions.length}})</h3>
             <div class="questions-list">
-              <div *ngFor="let question of selectedFormDetails.questions; let i = index" class="question-item">
+              <div *ngFor="let question of selectedFormDetails.questions; let i = index" class="question-item" [attr.data-question-index]="i" [class.current-question]="i === currentQuestionIndex">
                 <div class="question-header">
                   <span class="question-number">{{i + 1}}</span>
                   <h4>{{question.title}}</h4>
@@ -120,6 +120,9 @@ import { Subscription } from 'rxjs';
       font-size: 1.2rem;
       font-weight: 500;
     }
+
+    .center-navbar { justify-content: center; width: 100%; display: flex; }
+    .navbar { justify-content: center; }
 
     .brand-icon {
       font-size: 24px;
@@ -264,6 +267,8 @@ import { Subscription } from 'rxjs';
             border-radius: 8px;
             border-left: 3px solid #3f51b5;
 
+            &.current-question { border: 2px solid #FFD600; background: rgba(255, 214, 0, 0.08); }
+
             .question-header {
               display: flex;
               align-items: center;
@@ -375,6 +380,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
     this.subscriptions.push(
       this.formPreviewService.selectedFormDetails$.subscribe(details => {
         this.selectedFormDetails = details;
+        this.currentQuestionIndex = 0;
       })
     );
 
@@ -389,9 +395,44 @@ export class NavbarComponent implements OnInit, OnDestroy {
     this.subscriptions.forEach(sub => sub.unsubscribe());
   }
 
-  @HostListener('document:keydown.escape')
-  onEscapeKey(): void {
-    this.closePreview();
+  @HostListener('document:keydown', ['$event'])
+  handleKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && this.selectedFormDetails) {
+      event.preventDefault();
+      this.closePreview();
+    }
+    // Ctrl+Shift+J or Cmd+Shift+J (down)
+    if (
+      this.selectedFormDetails &&
+      event.shiftKey && (event.ctrlKey || event.metaKey) && (event.key === 'j' || event.key === 'J')
+    ) {
+      event.preventDefault();
+      this.navigateQuestion(1);
+    }
+    // Ctrl+Shift+K or Cmd+Shift+K (up)
+    if (
+      this.selectedFormDetails &&
+      event.shiftKey && (event.ctrlKey || event.metaKey) && (event.key === 'k' || event.key === 'K')
+    ) {
+      event.preventDefault();
+      this.navigateQuestion(-1);
+    }
+  }
+
+  public currentQuestionIndex: number = 0;
+
+  private navigateQuestion(direction: 1 | -1): void {
+    if (!this.selectedFormDetails || !this.selectedFormDetails.questions.length) return;
+    const total = this.selectedFormDetails.questions.length;
+    this.currentQuestionIndex = Math.max(0, Math.min(total - 1, this.currentQuestionIndex + direction));
+    const question = this.selectedFormDetails.questions[this.currentQuestionIndex];
+    if (question) {
+      // Optionally scroll to the question in the DOM
+      setTimeout(() => {
+        const el = document.querySelector('.question-item[data-question-index="' + this.currentQuestionIndex + '"]');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 0);
+    }
   }
 
   closePreview(): void {
