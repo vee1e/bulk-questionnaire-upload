@@ -1,53 +1,101 @@
 # mForm Bulk Upload Backend
 
-A FastAPI backend for parsing and storing Excel form data in MongoDB.
+A FastAPI backend for validating, parsing, and storing Excel-based form data in MongoDB. Designed for robust integration with the Angular frontend and easy extensibility.
 
-## Prerequisites
+---
 
-- Python 3.8+
-- MongoDB (local or cloud instance)
-- pip
+## Table of Contents
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [API Endpoints](#api-endpoints)
+- [Database Schema](#database-schema)
+- [Excel File Requirements](#excel-file-requirements)
+- [Setup & Installation](#setup--installation)
+- [Error Handling & Logging](#error-handling--logging)
+- [Development & Maintenance Tips](#development--maintenance-tips)
+- [Extending the Backend](#extending-the-backend)
 
-## Installation
+---
 
-1. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+## Overview
+This backend provides:
+- Validation of Excel files for correct structure and content
+- Parsing and storage of forms, questions, and answer options in MongoDB
+- RESTful API endpoints for form management
+- Detailed error handling and logging
+- CORS support for seamless frontend integration
 
-2. Set up MongoDB:
-   - Install MongoDB locally or use MongoDB Atlas
-   - Create a database named `mform_bulk_upload`
+---
 
-3. Environment Configuration:
-   Create a `.env` file in the backend directory:
-   ```
-   MONGODB_URL=mongodb://localhost:27017
-   DATABASE_NAME=mform_bulk_upload
-   ```
+## Architecture
 
-## Running the Application
+**Main Components:**
+- `main.py`: FastAPI app, API routes, startup/shutdown events, CORS, and metrics logging
+- `services/xlsform_parser.py`: Business logic for validating and parsing Excel files
+- `services/database_service.py`: Async database operations for forms, questions, and options
+- `database.py`: MongoDB connection management and collection handles
+- `models/`: Pydantic models for validation, API responses, and internal data structures
 
-```bash
-python main.py
-```
+**Startup Flow:**
+- Loads environment variables from `.env`
+- Connects to MongoDB on startup, closes on shutdown
+- Exposes API endpoints under `/api/`
 
-The API will be available at `http://localhost:8000`
+---
 
 ## API Endpoints
 
 ### File Validation
-- **POST** `/api/validate` - Validate Excel file structure
-  - Returns detailed validation information including sheet status, metadata, and counts
+- **POST** `/api/validate`
+  - **Description:** Validate Excel file structure and content
+  - **Request:** `multipart/form-data` with a single file field
+  - **Response:**
+    ```json
+    {
+      "valid": true,
+      "message": "File format is valid.",
+      "sheets": [...],
+      "form_metadata": {...},
+      "questions_count": 10,
+      "options_count": 30,
+      "errors": [],
+      "warnings": []
+    }
+    ```
 
 ### File Upload
-- **POST** `/api/upload` - Parse and store Excel file in MongoDB
-  - Saves form metadata, questions, and answer options to separate collections
+- **POST** `/api/upload`
+  - **Description:** Parse and store one or more Excel files
+  - **Request:** `multipart/form-data` with one or more files
+  - **Response:** List of parsed form objects or error details
 
 ### Forms Management
-- **GET** `/api/forms` - Get all forms from database
-- **GET** `/api/forms/{form_id}` - Get specific form with questions and options
-- **DELETE** `/api/forms/{form_id}` - Delete form and all related data
+- **GET** `/api/forms`
+  - **Description:** List all forms
+  - **Response:** `{ "forms": [...], "count": 2 }`
+
+- **GET** `/api/forms/{form_id}`
+  - **Description:** Get a form with its questions and options
+  - **Response:**
+    ```json
+    {
+      "form": {...},
+      "questions": [...],
+      "options": [...],
+      "questions_count": 10,
+      "options_count": 30
+    }
+    ```
+
+- **DELETE** `/api/forms/{form_id}`
+  - **Description:** Delete a form and all related data
+  - **Response:** `{ "message": "Form deleted successfully" }`
+
+- **DELETE** `/api/forms`
+  - **Description:** Delete all forms and related data
+  - **Response:** `{ "message": "All forms deleted successfully" }`
+
+---
 
 ## Database Schema
 
@@ -87,23 +135,77 @@ The API will be available at `http://localhost:8000`
 }
 ```
 
-## Excel File Structure
+---
 
-The application expects Excel files with three sheets:
+## Excel File Requirements
 
-1. **Forms** - Form metadata
-   - Columns: Language, Title
+The backend expects Excel files with **three sheets**:
+1. **Forms**
+   - Columns: `Language`, `Title`
+2. **Questions Info**
+   - Columns: `Order`, `Title`, `View Sequence`, `Input Type`
+3. **Answer Options**
+   - Columns: `Order`, `Id`, `Label`
 
-2. **Questions Info** - Question definitions
-   - Columns: Order, Title, View Sequence, Input Type
+Validation will fail if required sheets or columns are missing.
 
-3. **Answer Options** - Answer choices for questions
-   - Columns: Order, Id, Label
+---
 
-## Features
+## Setup & Installation
 
-- Excel file validation with detailed feedback
-- MongoDB integration for data persistence
-- RESTful API endpoints
-- Error handling and logging
-- CORS support for frontend integration
+### Prerequisites
+- Python 3.8+
+- MongoDB (local or cloud instance)
+- pip
+
+### Installation Steps
+1. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+2. **Set up MongoDB:**
+   - Install locally or use MongoDB Atlas
+   - Create a database named `mform_bulk_upload`
+3. **Environment Configuration:**
+   - Create a `.env` file in the backend directory:
+     ```
+     MONGODB_URL=mongodb://localhost:27017
+     DATABASE_NAME=mform_bulk_upload
+     ```
+4. **Run the application:**
+   ```bash
+   python main.py
+   ```
+   The API will be available at `http://localhost:8000`
+
+---
+
+## Error Handling & Logging
+- All API endpoints use structured error handling with FastAPI's `HTTPException`.
+- Errors and warnings during file validation are returned in the API response.
+- Application-level errors are logged using Python's `logging` module (see `main.py`, `services/`).
+- Metrics (e.g., processing times, counts) are logged to `metrics.txt` for performance monitoring.
+- Database errors are caught and logged; user-facing errors are returned with appropriate HTTP status codes.
+
+---
+
+## Development & Maintenance Tips
+- **Centralize logic:** All business logic is in `services/`, and all DB access in `database_service.py`.
+- **Environment variables:** Use `.env` for DB config; never hardcode secrets.
+- **Testing:** Use tools like `httpie` or Postman to test endpoints.
+- **Extending:** Add new endpoints in `main.py` and corresponding logic in `services/`.
+- **Logging:** Check `metrics.txt` and logs for troubleshooting and performance analysis.
+- **CORS:** Update allowed origins in `main.py` if frontend URL changes.
+
+---
+
+## Extending the Backend
+- **Add new endpoints:** Define in `main.py`, implement logic in `services/`, and update models as needed.
+- **Add new collections:** Update `database.py` and `database_service.py` for new MongoDB collections.
+- **Validation:** Extend `XLSFormParser` for new validation rules or file formats.
+- **Documentation:** Update this README and docstrings in code for any new features or changes.
+
+---
+
+## License
+MIT
