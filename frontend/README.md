@@ -23,3 +23,53 @@ This frontend is a modern Angular application for bulk uploading, validating, an
 - `src/app/services/` - Services for form parsing and backend API communication
 - `src/app/models/` - TypeScript interfaces for form and question data
 
+# Backend Integration Points
+
+This document outlines where and how the frontend communicates with the backend API for easy maintenance and future updates.
+
+## Main Integration Service
+
+### `FormService` (`src/app/services/form.service.ts`)
+This Angular service encapsulates all HTTP communication with the backend API. It is the single source of truth for API endpoints used by the frontend.
+
+**Endpoints Used:**
+- `POST /api/validate` — Validate a form file before upload
+- `POST /api/upload` — Upload a form file (single or multiple)
+- `GET /api/forms` — Fetch all uploaded forms
+- `GET /api/forms/:formId` — Fetch details for a specific form
+- `DELETE /api/forms/:formId` — Delete a specific form
+- `DELETE /api/forms` — Delete all forms
+
+**Service Methods:**
+- `validateFile(file: File)`
+- `uploadFile(file: File)`
+- `uploadFiles(files: File[])`
+- `getAllForms()`
+- `getFormById(formId: string)`
+- `deleteForm(formId: string)`
+- `deleteAllForms()`
+
+## Components Using Backend Integration
+
+### `UploadComponent` (`src/app/components/upload/upload.component.ts`)
+- Uses `FormService` to:
+  - Validate files before upload
+  - Upload files
+  - Fetch the list of forms
+  - Delete individual forms
+  - Delete all forms
+  - Fetch form details for preview
+
+### `NavbarComponent` (`src/app/components/navbar/navbar.component.ts`)
+- Indirectly uses backend data via `FormPreviewService`, which is populated by `UploadComponent` using `FormService`.
+
+## How to Update Backend Endpoints
+- All backend API URLs are defined in `FormService` as `apiUrl`.
+- To change the backend base URL or endpoints, update `FormService` accordingly.
+- If new endpoints are added to the backend, add corresponding methods to `FormService` and use them in components as needed.
+
+## Maintenance Tips
+- Keep all backend API calls centralized in `FormService` for consistency and easy updates.
+- Avoid direct HTTP calls in components; always use the service.
+- Update this documentation whenever new integration points are added.
+
