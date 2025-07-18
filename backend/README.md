@@ -21,7 +21,7 @@ A FastAPI backend for validating, parsing, and storing Excel-based form data in 
 This backend provides:
 - Validation of Excel files for correct structure and content
 - Parsing and storage of forms, questions, and answer options in MongoDB
-- RESTful API endpoints for form management
+- RESTful API endpoints for form management, including in-place form updates
 - Detailed error handling and logging
 - CORS support for seamless frontend integration
 
@@ -68,6 +68,21 @@ This backend provides:
   - **Description:** Parse and store one or more Excel files
   - **Request:** `multipart/form-data` with one or more files
   - **Response:** List of parsed form objects or error details
+
+### Update Form
+- **PUT** `/api/forms/{form_id}/update`
+  - **Description:** Update an existing form with a new Excel file (XLS/XLSX). The form is updated in place, preserving its ID.
+  - **Request:** `multipart/form-data` with a single file field
+  - **Response:**
+    ```json
+    {
+      "form": {...},
+      "questions": [...],
+      "options": [...],
+      "questions_count": 10,
+      "options_count": 30
+    }
+    ```
 
 ### Forms Management
 - **GET** `/api/forms`

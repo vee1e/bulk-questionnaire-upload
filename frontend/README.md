@@ -9,6 +9,7 @@ This frontend is a modern Angular application for bulk uploading, validating, an
 - **Validation**: Validate all selected files before uploading to ensure correct format and content.
 - **Form Management**: View a list of all uploaded forms, search by title, and delete individual or all forms.
 - **Form Details**: Click on a form to view its questions, options, and metadata in a modal dialog.
+- **Update Form**: Update an existing form by selecting a new Excel file, preserving its ID and history.
 - **Responsive UI**: Built with Angular Material for a clean, modern, and responsive user experience.
 
 ### Key Components
@@ -37,6 +38,7 @@ This Angular service encapsulates all HTTP communication with the backend API. I
 - `POST /api/upload` — Upload a form file (single or multiple)
 - `GET /api/forms` — Fetch all uploaded forms
 - `GET /api/forms/:formId` — Fetch details for a specific form
+- `PUT /api/forms/:formId/update` — Update a specific form with a new file
 - `DELETE /api/forms/:formId` — Delete a specific form
 - `DELETE /api/forms` — Delete all forms
 
@@ -46,6 +48,7 @@ This Angular service encapsulates all HTTP communication with the backend API. I
 - `uploadFiles(files: File[])`
 - `getAllForms()`
 - `getFormById(formId: string)`
+- `updateForm(formId: string, file: File)`
 - `deleteForm(formId: string)`
 - `deleteAllForms()`
 
@@ -56,6 +59,7 @@ This Angular service encapsulates all HTTP communication with the backend API. I
   - Validate files before upload
   - Upload files
   - Fetch the list of forms
+  - Update a form with a new file (update button, file picker, and update logic)
   - Delete individual forms
   - Delete all forms
   - Fetch form details for preview
@@ -72,4 +76,14 @@ This Angular service encapsulates all HTTP communication with the backend API. I
 - Keep all backend API calls centralized in `FormService` for consistency and easy updates.
 - Avoid direct HTTP calls in components; always use the service.
 - Update this documentation whenever new integration points are added.
+
+## Update Flow
+
+To update an existing form:
+- Click the yellow update (refresh) icon next to a form in the list.
+- Select a new Excel file (XLS/XLSX) from your computer.
+- The file is sent to the backend, which updates the form in place (preserving its ID and history).
+- The UI will reload the form list and show the updated details.
+
+This feature uses the backend endpoint `PUT /api/forms/:formId/update` and the `updateForm` method in `FormService`.
 
