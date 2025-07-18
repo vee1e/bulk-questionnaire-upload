@@ -84,4 +84,10 @@ export class FormService {
     deleteAllForms(): Observable<{ message: string }> {
         return this.http.delete<{ message: string }>(`${this.apiUrl}/forms`);
     }
+
+    updateForm(formId: string, file: File): Observable<FormDetails> {
+        const formData = new FormData();
+        formData.append('file', file);
+        return this.http.put<FormDetails>(`${this.apiUrl}/forms/${formId}/update`, formData);
+    }
 }

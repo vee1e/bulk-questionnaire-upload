@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, HTTPException, File
+from fastapi import FastAPI, UploadFile, HTTPException, File, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from services.xlsform_parser import XLSFormParser
@@ -10,6 +10,8 @@ import asyncio
 from typing import List
 import time
 import os
+from fastapi.responses import JSONResponse
+import pandas as pd
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -132,6 +134,45 @@ async def get_form_by_id(form_id: str):
         raise
     except Exception as e:
         logger.error(f"Error getting form: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/forms/{form_id}/update")
+async def update_form(form_id: str, file: UploadFile = File(...)):
+    """
+    Update an existing form by ID with a new XLS file
+    """
+    if not file.filename or not file.filename.endswith((".xls", ".xlsx")):
+        raise HTTPException(status_code=400, detail="Invalid file format. Only .xls/.xlsx files are allowed.")
+
+    try:
+        parser = XLSFormParser()
+        # Parse the file to get new metadata, questions, and options
+        df_dict = pd.read_excel(file.file, sheet_name=None)
+        forms_df = df_dict['Forms']
+        questions_df = df_dict['Questions Info']
+        options_df = df_dict['Answer Options']
+        form_metadata = parser._parse_form_metadata(forms_df)
+        questions_data = parser._parse_questions_data(questions_df)
+        options_data = parser._parse_options_data(options_df)
+
+        # Update the form in the database
+        success = await db_service.update_form(form_id, form_metadata, questions_data, options_data)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to update form.")
+
+        # Return the updated form details
+        form = await db_service.get_form_by_id(form_id)
+        questions = await db_service.get_questions_by_form_id(form_id)
+        options = await db_service.get_options_by_form_id(form_id)
+        return {
+            "form": form,
+            "questions": questions,
+            "options": options,
+            "questions_count": len(questions),
+            "options_count": len(options)
+        }
+    except Exception as e:
+        logger.error(f"Error updating form: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/api/forms/{form_id}")
