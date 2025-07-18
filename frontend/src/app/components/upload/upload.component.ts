@@ -5,6 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { FormService, FormData, FormDetails, OptionData } from '../../services/form.service';
 import { FormValidation, ValidationError, ValidationWarning } from '../../models/form.model';
 import { FormPreviewService } from '../../services/form-preview.service';
@@ -18,7 +19,8 @@ import { FormPreviewService } from '../../services/form-preview.service';
     MatButtonModule,
     MatIconModule,
     MatProgressBarModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
+    MatTooltipModule
   ],
   template: `
     <div *ngIf="isValidating || isUploading || isDeletingAll" class="global-upload-progress"
@@ -146,12 +148,18 @@ import { FormPreviewService } from '../../services/form-preview.service';
               <mat-spinner *ngIf="loadingFormId === form.id" diameter="24" class="loading-spinner"></mat-spinner>
               <div class="form-details">
                 <h4>{{form.title}}</h4>
-                <p>{{form.language}} • {{form.version}} • {{form.created_at | date:'short'}}</p>
+                <p>{{form.language}} • {{form.version}} • {{form.created_at | date:'short'}} </p>
               </div>
             </div>
 
             <div class="form-actions">
-              <button mat-icon-button color="warn" (click)="deleteForm(form, $event)" [disabled]="loadingFormId === form.id">
+              <button mat-icon-button (click)="exportFormAsJson(form, $event)" [disabled]="loadingFormId === form.id" style="color: white;" matTooltip="Download JSON">
+                <mat-icon style="color: white;">download</mat-icon>
+              </button>
+              <button mat-icon-button color="accent" (click)="onUpdateButtonClick(form, $event)" [disabled]="loadingFormId === form.id" matTooltip="Update Form">
+                <mat-icon>refresh</mat-icon>
+              </button>
+              <button mat-icon-button color="warn" (click)="deleteForm(form, $event)" [disabled]="loadingFormId === form.id" matTooltip="Delete Form">
                 <mat-icon>delete</mat-icon>
               </button>
             </div>
@@ -159,6 +167,7 @@ import { FormPreviewService } from '../../services/form-preview.service';
         </div>
       </mat-card-content>
     </mat-card>
+    <input type="file" accept=".xls,.xlsx" #updateFileInput id="global-update-file-input" style="display: none" (change)="onUpdateFileSelected($event)">
   `,
   styles: [`
     .upload-card {
@@ -476,6 +485,11 @@ import { FormPreviewService } from '../../services/form-preview.service';
       font-weight: 500;
       margin-bottom: 0.2rem;
     }
+    .form-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
   `]
 })
 export class UploadComponent implements OnInit, OnChanges {
@@ -494,6 +508,7 @@ export class UploadComponent implements OnInit, OnChanges {
   deleteProgress = { current: 0, total: 0 };
   loadingFormId: string | null = null;
   currentPreviewedFormId: string | null = null;
+  updateTargetForm: FormData | null = null;
 
   constructor(private formService: FormService, private formPreviewService: FormPreviewService) {}
 
@@ -691,6 +706,27 @@ export class UploadComponent implements OnInit, OnChanges {
     }
   }
 
+  exportFormAsJson(form: FormData, event: Event): void {
+    event.stopPropagation();
+    this.formService.getFormById(form.id).subscribe({
+      next: (details) => {
+        const json = JSON.stringify(details, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${form.title || 'form'}-${form.id}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      },
+      error: (error: any) => {
+        console.error('Failed to export form as JSON:', error);
+      }
+    });
+  }
+
   showFormDetails(form: FormData): void {
     this.loadingFormId = form.id;
     this.formPreviewService.setLoadingFormId(form.id);
@@ -767,5 +803,40 @@ export class UploadComponent implements OnInit, OnChanges {
       'duplicate_value': 'Duplicate Value'
     };
     return labels[type] || type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+  }
+
+  onUpdateButtonClick(form: FormData, event: Event): void {
+    event.stopPropagation();
+    this.updateTargetForm = form;
+    const input = document.getElementById('global-update-file-input') as HTMLInputElement;
+    if (input) {
+      input.value = '';
+      input.click();
+    }
+  }
+
+  onUpdateFileSelected(event: Event): void {
+    event.stopPropagation();
+    if (!this.updateTargetForm) return;
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      const file = input.files[0];
+      if (confirm(`This will update the form '${this.updateTargetForm.title}' with the new XLS file. Continue?`)) {
+        this.loadingFormId = this.updateTargetForm.id;
+        this.formService.updateForm(this.updateTargetForm.id, file).subscribe({
+          next: (updatedFormDetails) => {
+            this.loadForms();
+            this.showFormDetails(updatedFormDetails.form); // Show updated details
+            this.loadingFormId = null;
+            this.updateTargetForm = null;
+          },
+          error: (error: any) => {
+            console.error('Failed to update form:', error);
+            this.loadingFormId = null;
+            this.updateTargetForm = null;
+          }
+        });
+      }
+    }
   }
 }

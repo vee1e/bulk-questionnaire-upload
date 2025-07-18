@@ -129,4 +129,34 @@ class DatabaseService:
             return True
         except Exception as e:
             logger.error(f"Error deleting all forms: {e}")
+            return False
+
+    async def update_form(self, form_id: str, form_data: Dict[str, Any], questions: List[Dict[str, Any]], options: List[Dict[str, Any]]) -> bool:
+        """Update form metadata, questions, and options by form_id"""
+        try:
+            # Update form metadata
+            if 'id' in form_data:
+                del form_data['id']
+            await forms_collection.update_one({"_id": ObjectId(form_id)}, {"$set": form_data})
+
+            # Delete old questions and options
+            await questions_collection.delete_many({"form_id": form_id})
+            await options_collection.delete_many({"form_id": form_id})
+
+            # Insert new questions
+            for question in questions:
+                question['form_id'] = form_id
+                question['_id'] = ObjectId()
+                await questions_collection.insert_one(question)
+
+            # Insert new options
+            for option in options:
+                option['form_id'] = form_id
+                option['_id'] = ObjectId()
+                await options_collection.insert_one(option)
+
+            logger.info(f"Updated form {form_id} with new metadata, questions, and options")
+            return True
+        except Exception as e:
+            logger.error(f"Error updating form: {e}")
             return False 
