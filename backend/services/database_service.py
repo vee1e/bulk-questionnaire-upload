@@ -129,7 +129,7 @@ class DatabaseService:
             return True
         except Exception as e:
             logger.error(f"Error deleting all forms: {e}")
-            return False
+            return False 
 
     async def update_form(self, form_id: str, form_data: Dict[str, Any], questions: List[Dict[str, Any]], options: List[Dict[str, Any]]) -> bool:
         """Update form metadata, questions, and options by form_id"""
