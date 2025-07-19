@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { FormService, FormData, FormDetails, OptionData } from '../../services/form.service';
 import { FormValidation, ValidationError, ValidationWarning } from '../../models/form.model';
 import { FormPreviewService } from '../../services/form-preview.service';
@@ -20,7 +21,8 @@ import { FormPreviewService } from '../../services/form-preview.service';
     MatIconModule,
     MatProgressBarModule,
     MatProgressSpinnerModule,
-    MatTooltipModule
+    MatTooltipModule,
+    MatSnackBarModule
   ],
   template: `
     <div *ngIf="isValidating || isUploading || isDeletingAll" class="global-upload-progress"
@@ -490,6 +492,42 @@ import { FormPreviewService } from '../../services/form-preview.service';
       align-items: center;
       gap: 0.5rem;
     }
+
+    ::ng-deep {
+      .custom-snackbar {
+        .mdc-snackbar__surface {
+          background-color: #3f51b5 !important;
+          color: white !important;
+        }
+        
+        .mdc-snackbar__label {
+          color: white !important;
+          font-weight: 500 !important;
+        }
+        
+        .mdc-snackbar__actions .mdc-button {
+          color: white !important;
+          font-weight: 600 !important;
+        }
+      }
+
+      .custom-snackbar-error {
+        .mdc-snackbar__surface {
+          background-color: #F44336 !important;
+          color: white !important;
+        }
+        
+        .mdc-snackbar__label {
+          color: white !important;
+          font-weight: 500 !important;
+        }
+        
+        .mdc-snackbar__actions .mdc-button {
+          color: white !important;
+          font-weight: 600 !important;
+        }
+      }
+    }
   `]
 })
 export class UploadComponent implements OnInit, OnChanges {
@@ -510,7 +548,7 @@ export class UploadComponent implements OnInit, OnChanges {
   currentPreviewedFormId: string | null = null;
   updateTargetForm: FormData | null = null;
 
-  constructor(private formService: FormService, private formPreviewService: FormPreviewService) {}
+  constructor(private formService: FormService, private formPreviewService: FormPreviewService, private snackBar: MatSnackBar) {}
 
   ngOnInit(): void {
     this.loadForms();
@@ -823,17 +861,78 @@ export class UploadComponent implements OnInit, OnChanges {
       const file = input.files[0];
       if (confirm(`This will update the form '${this.updateTargetForm.title}' with the new XLS file. Continue?`)) {
         this.loadingFormId = this.updateTargetForm.id;
-        this.formService.updateForm(this.updateTargetForm.id, file).subscribe({
-          next: (updatedFormDetails) => {
-            this.loadForms();
-            this.showFormDetails(updatedFormDetails.form); // Show updated details
-            this.loadingFormId = null;
-            this.updateTargetForm = null;
+        // First validate the file
+        this.formService.validateFile(file).subscribe({
+          next: (validationResult) => {
+            if (validationResult.valid) {
+              // Store old form details for comparison
+              const oldFormTitle = this.updateTargetForm!.title;
+              
+              // File is valid, proceed with update
+              this.formService.updateForm(this.updateTargetForm!.id, file).subscribe({
+                next: (updatedFormDetails) => {
+                  this.loadForms();
+                  this.showFormDetails(updatedFormDetails.form); // Show updated details
+                  this.loadingFormId = null;
+                  this.updateTargetForm = null;
+                  
+                  // Show success toast with details
+                  const toastMessage = `Successfully updated "${oldFormTitle}" to "${updatedFormDetails.form.title}".`;
+                  
+                  this.snackBar.open(toastMessage, 'Close', {
+                    duration: 5000,
+                    panelClass: ['custom-snackbar'],
+                    verticalPosition: 'top'
+                  });
+                },
+                error: (error: any) => {
+                  console.error('Failed to update form:', error);
+                  this.loadingFormId = null;
+                  this.updateTargetForm = null;
+                  this.snackBar.open('Failed to update form. Please try again.', 'Close', {
+                    duration: 3000,
+                    panelClass: ['custom-snackbar-error'],
+                    verticalPosition: 'top'
+                  });
+                }
+              });
+            } else {
+              // File is invalid, show errors
+              this.loadingFormId = null;
+              this.updateTargetForm = null;
+              let errorMessage = `File validation failed for "${file.name}":\n\n`;
+
+              if (validationResult.errors && validationResult.errors.length > 0) {
+                errorMessage += `Errors (${validationResult.errors.length}):\n`;
+                validationResult.errors.forEach((error, index) => {
+                  errorMessage += `${index + 1}. ${this.getErrorTypeLabel(error.type)}: ${error.message}\n`;
+                  if (error.location) errorMessage += `   Location: ${error.location}\n`;
+                  if (error.row) errorMessage += `   Row: ${error.row}\n`;
+                  if (error.column) errorMessage += `   Column: ${error.column}\n`;
+                  errorMessage += '\n';
+                });
+              }
+
+              if (validationResult.warnings && validationResult.warnings.length > 0) {
+                errorMessage += `Warnings (${validationResult.warnings.length}):\n`;
+                validationResult.warnings.forEach((warning, index) => {
+                  errorMessage += `${index + 1}. ${this.getWarningTypeLabel(warning.type)}: ${warning.message}\n`;
+                  if (warning.location) errorMessage += `   Location: ${warning.location}\n`;
+                  if (warning.row) errorMessage += `   Row: ${warning.row}\n`;
+                  if (warning.column) errorMessage += `   Column: ${warning.column}\n`;
+                  errorMessage += '\n';
+                });
+              }
+
+              errorMessage += '\nPlease fix the errors and try again.';
+              alert(errorMessage);
+            }
           },
           error: (error: any) => {
-            console.error('Failed to update form:', error);
+            console.error('Failed to validate file:', error);
             this.loadingFormId = null;
             this.updateTargetForm = null;
+            alert('Failed to validate file. Please try again.');
           }
         });
       }
