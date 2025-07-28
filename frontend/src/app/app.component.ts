@@ -36,7 +36,11 @@ import { UploadComponent } from './components/upload/upload.component';
       height: 100vh;
       display: flex;
       flex-direction: column;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      background: #0a0a0a;
+      border-radius: 16px;
+      margin: 8px;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
     }
 
     .main-content {

@@ -102,15 +102,16 @@ import { Subscription } from 'rxjs';
   `,
   styles: [`
     .navbar {
-      background: rgba(255, 255, 255, 0.1);
+      background: rgba(0, 0, 0, 0.8);
       backdrop-filter: blur(10px);
       color: white;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
       z-index: 1000;
       position: relative;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
     }
 
     .navbar-brand {
@@ -128,6 +129,7 @@ import { Subscription } from 'rxjs';
       font-size: 24px;
       width: 24px;
       height: 24px;
+      color: #ffffff;
     }
 
     .navbar-actions {
@@ -144,12 +146,13 @@ import { Subscription } from 'rxjs';
         padding: 0.25rem 0.5rem;
         border-radius: 4px;
         font-family: monospace;
+        border: 1px solid rgba(255, 255, 255, 0.2);
       }
     }
 
     .close-preview-btn {
       background: rgba(255, 255, 255, 0.1);
-      color: white;
+      color: #ffffff;
 
       &:hover {
         background: rgba(255, 255, 255, 0.2);
@@ -162,11 +165,11 @@ import { Subscription } from 'rxjs';
       left: 2rem;
       right: 2rem;
       height: 60vh;
-      background: #23234a;
+      background: #1a1a1a;
       color: white;
-      border: 5px solid #3f51b5;
-      border-radius: 16px;
-      box-shadow: 0 12px 40px rgba(0,0,0,0.7), 0 4px 16px rgba(63, 81, 181, 0.3);
+      border: 2px solid #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.8), 0 4px 16px rgba(255, 255, 255, 0.2);
       margin: 22px;
       z-index: 999;
       transform: translateY(-120%);
@@ -184,10 +187,10 @@ import { Subscription } from 'rxjs';
         top: 0;
         left: 0;
         right: 0;
-        height: 0px;
-        background: linear-gradient(90deg, #3f51b5, #5c6bc0, #3f51b5);
+        height: 2px;
+        background: linear-gradient(90deg, #ffffff, #e0e0e0, #ffffff);
         z-index: 1;
-        border-radius: 16px 16px 0 0;
+        border-radius: 12px 12px 0 0;
       }
     }
 
@@ -202,7 +205,7 @@ import { Subscription } from 'rxjs';
     .preview-header {
       margin-bottom: 2rem;
       padding-bottom: 1rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
 
       h2 {
         margin: 0 0 0.5rem 0;
@@ -223,6 +226,7 @@ import { Subscription } from 'rxjs';
         padding: 1rem;
         background: rgba(255, 255, 255, 0.05);
         border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
 
         h3 {
           margin: 0 0 1rem;
@@ -240,6 +244,7 @@ import { Subscription } from 'rxjs';
             padding: 0.5rem;
             background: rgba(255, 255, 255, 0.05);
             border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
 
             strong {
               display: block;
@@ -265,9 +270,13 @@ import { Subscription } from 'rxjs';
             padding: 1rem;
             background: rgba(255, 255, 255, 0.05);
             border-radius: 8px;
-            border-left: 3px solid #3f51b5;
+            border-left: 3px solid #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.1);
 
-            &.current-question { border: 2px solid #FFD600; background: rgba(255, 214, 0, 0.08); }
+            &.current-question { 
+              border: 2px solid #ffffff; 
+              background: rgba(255, 255, 255, 0.1); 
+            }
 
             .question-header {
               display: flex;
@@ -276,8 +285,8 @@ import { Subscription } from 'rxjs';
               margin-bottom: 0.5rem;
 
               .question-number {
-                background: #3f51b5;
-                color: white;
+                background: #ffffff;
+                color: #000000;
                 width: 24px;
                 height: 24px;
                 border-radius: 50%;
@@ -303,6 +312,7 @@ import { Subscription } from 'rxjs';
                 font-size: 0.75rem;
                 font-weight: 500;
                 color: rgba(255, 255, 255, 0.8);
+                border: 1px solid rgba(255, 255, 255, 0.2);
               }
             }
 
@@ -336,11 +346,12 @@ import { Subscription } from 'rxjs';
                   gap: 0.5rem;
                   margin-bottom: 0.25rem;
                   padding: 0.25rem 0.5rem;
-                  background: rgba(255, 255, 255, 0.03);
+                  background: rgba(255, 255, 255, 0.05);
                   border-radius: 4px;
+                  border: 1px solid rgba(255, 255, 255, 0.1);
 
                   .option-id {
-                    background: rgba(255, 255, 255, 0.1);
+                    background: rgba(255, 255, 255, 0.2);
                     color: white;
                     padding: 0.125rem 0.375rem;
                     border-radius: 3px;
