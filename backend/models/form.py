@@ -59,4 +59,4 @@ class ParsedForm(BaseModel):
     version: str
     groups: List[FormGroup]
     settings: Optional[Dict[str, Any]] = None
-    metadata: Optional[Dict[str, Any]] = None 
+    metadata: Optional[Dict[str, Any]] = None

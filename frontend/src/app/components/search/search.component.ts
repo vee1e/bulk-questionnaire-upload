@@ -177,7 +177,7 @@ import { MatIconModule } from '@angular/material/icon';
 export class SearchComponent implements OnInit, OnDestroy {
   @Output() search = new EventEmitter<string>();
   @ViewChild('searchInput') searchInput!: ElementRef<HTMLInputElement>;
-  
+
   searchQuery = '';
 
   ngOnInit() {
