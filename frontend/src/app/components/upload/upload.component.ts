@@ -26,7 +26,7 @@ import { FormPreviewService } from '../../services/form-preview.service';
   ],
   template: `
     <div *ngIf="isValidating || isUploading || isDeletingAll" class="global-upload-progress"
-         [ngStyle]="isValidating ? {'background': '#665c00'} : isUploading ? {'background': '#1b5e20'} : isDeletingAll ? {'background': '#b71c1c'} : {}">
+         [ngStyle]="isValidating ? {'background': 'rgba(0, 0, 0, 0.95)'} : isUploading ? {'background': 'rgba(0, 0, 0, 0.95)'} : isDeletingAll ? {'background': 'rgba(244, 67, 54, 0.95)'} : {}">
       <div class="progress-counter" *ngIf="isValidating">
         Validating {{validationProgress.current}}/{{validationProgress.total}}...
       </div>
@@ -39,11 +39,10 @@ import { FormPreviewService } from '../../services/form-preview.service';
       <mat-progress-bar
         color="primary"
         [ngClass]="{
-          'bar-yellow': isValidating,
-          'bar-green': isUploading,
+          'bar-orange': isValidating || isUploading,
           'bar-red': isDeletingAll
         }"
-        [ngStyle]="isValidating ? {'background': '#FFD600'} : isUploading ? {'background': '#4CAF50'} : isDeletingAll ? {'background': '#F44336'} : {}"
+        [ngStyle]="isValidating ? {'background': '#ff9800'} : isUploading ? {'background': '#ff9800'} : isDeletingAll ? {'background': '#F44336'} : {}"
         mode="indeterminate">
       </mat-progress-bar>
     </div>
@@ -173,17 +172,17 @@ import { FormPreviewService } from '../../services/form-preview.service';
   `,
   styles: [`
     .upload-card {
-      background: rgba(255, 255, 255, 0.1);
+      background: rgba(0, 0, 0, 0.6);
       backdrop-filter: blur(10px);
-      border: 2px dashed rgba(255, 255, 255, 0.2);
+      border: 2px dashed rgba(255, 255, 255, 0.3);
       transition: all 0.3s ease;
       height: 100%;
       min-height: 400px;
       color: white;
 
       &.dragover {
-        border-color: #4CAF50;
-        background: rgba(76, 175, 80, 0.1);
+        border-color: #ffffff;
+        background: rgba(255, 255, 255, 0.1);
       }
 
       ::ng-deep {
@@ -205,6 +204,7 @@ import { FormPreviewService } from '../../services/form-preview.service';
           justify-content: center;
           width: 40px;
           height: 40px;
+          border: 1px solid rgba(255, 255, 255, 0.2);
 
           mat-icon {
             display: flex;
@@ -212,6 +212,7 @@ import { FormPreviewService } from '../../services/form-preview.service';
             justify-content: center;
             width: 100%;
             height: 100%;
+            color: #ffffff;
           }
         }
 
@@ -239,7 +240,7 @@ import { FormPreviewService } from '../../services/form-preview.service';
         width: 64px;
         height: 64px;
         margin-bottom: 1rem;
-        color: rgba(255, 255, 255, 0.8);
+        color: #ffffff;
       }
 
       h2 {
@@ -256,28 +257,38 @@ import { FormPreviewService } from '../../services/form-preview.service';
 
     .file-actions {
       padding: 1rem;
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      border-top: 1px solid rgba(255, 255, 255, 0.2);
 
       .selected-file {
         margin-bottom: 1rem;
-        padding: 0.75rem;
+        padding: 0.4rem 0.4rem 0.0rem 0.4rem;
         background: rgba(255, 255, 255, 0.05);
         border-radius: 8px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-height: unset;
 
         .file-info {
           display: flex;
           align-items: center;
           gap: 0.5rem;
           margin-bottom: 0.5rem;
+          min-height: 2rem;
 
           mat-icon {
-            color: rgba(255, 255, 255, 0.7);
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
           }
 
           .file-name {
             flex: 1;
             font-weight: 500;
+            display: flex;
+            align-items: center;
           }
 
           .validation-status {
@@ -286,6 +297,9 @@ import { FormPreviewService } from '../../services/form-preview.service';
             font-size: 0.8rem;
             font-weight: bold;
             margin-left: 0.5rem;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
           }
 
           .valid {
@@ -304,7 +318,9 @@ import { FormPreviewService } from '../../services/form-preview.service';
         .validation-details {
           margin-top: 0.75rem;
           padding-top: 0.75rem;
-          border-top: 1px solid rgba(255, 255, 255, 0.1);
+          border-top: 1px solid rgba(255, 255, 255, 0.2);
+          min-height: 0;
+          transition: all 0.3s ease;
 
           .error-section, .warning-section {
             margin-bottom: 0.5rem;
@@ -320,7 +336,7 @@ import { FormPreviewService } from '../../services/form-preview.service';
             }
 
             .warning-title {
-              color: #FF9800;
+              color: #ffffff;
             }
 
             .validation-item {
@@ -332,11 +348,13 @@ import { FormPreviewService } from '../../services/form-preview.service';
               &.error {
                 background: rgba(244, 67, 54, 0.1);
                 border-left: 3px solid #F44336;
+                border: 1px solid rgba(244, 67, 54, 0.2);
               }
 
               &.warning {
-                background: rgba(255, 152, 0, 0.1);
-                border-left: 3px solid #FF9800;
+                background: rgba(255, 255, 255, 0.1);
+                border-left: 3px solid #ffffff;
+                border: 1px solid rgba(255, 255, 255, 0.2);
               }
 
               .validation-header {
@@ -352,6 +370,7 @@ import { FormPreviewService } from '../../services/form-preview.service';
                   font-size: 0.7rem;
                   font-weight: 600;
                   text-transform: uppercase;
+                  border: 1px solid rgba(255, 255, 255, 0.2);
                 }
 
                 .validation-location {
@@ -382,7 +401,7 @@ import { FormPreviewService } from '../../services/form-preview.service';
     }
 
     .form-list {
-      border-top: 2px dashed #b39ddb;
+      border-top: 2px dashed #ffffff;
       border-radius: 0;
       border-right: none;
       border-bottom: none;
@@ -401,25 +420,27 @@ import { FormPreviewService } from '../../services/form-preview.service';
       margin-bottom: 0.5rem;
       transition: all 0.3s ease;
       cursor: pointer;
+      border: 1px solid rgba(255, 255, 255, 0.1);
 
       &:hover {
         background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.3);
       }
 
       &.loading {
-        background: rgba(255, 255, 255, 0.18);
+        background: rgba(255, 255, 255, 0.1);
         opacity: 0.6;
         pointer-events: none;
       }
 
       &.previewed {
-        background: rgba(63, 81, 181, 0.2);
-        border: 2px solid #3f51b5;
-        box-shadow: 0 0 12px rgba(63, 81, 181, 0.3);
+        background: rgba(255, 255, 255, 0.15);
+        border: 2px solid #ffffff;
+        box-shadow: 0 0 12px rgba(255, 255, 255, 0.3);
         transform: scale(1.009);
 
         &:hover {
-          background: rgba(63, 81, 181, 0.25);
+          background: rgba(255, 255, 255, 0.2);
         }
       }
     }
@@ -430,12 +451,12 @@ import { FormPreviewService } from '../../services/form-preview.service';
       gap: 1rem;
 
       mat-icon {
-        color: rgba(255, 255, 255, 0.7);
+        color: #ffffff;
       }
 
       .loading-spinner {
         ::ng-deep circle {
-          stroke: rgba(255, 255, 255, 0.7);
+          stroke: #ffffff;
         }
       }
     }
@@ -476,11 +497,12 @@ import { FormPreviewService } from '../../services/form-preview.service';
       left: 0;
       width: 100vw;
       z-index: 4000;
-      background: rgba(35, 35, 74, 0.95);
+      background: rgba(0, 0, 0, 0.95);
       color: white;
       text-align: center;
       padding: 0.5rem 0 0.2rem 0;
-      box-shadow: 0 -2px 8px rgba(0,0,0,0.15);
+      box-shadow: 0 -2px 8px rgba(0,0,0,0.3);
+      border-top: 1px solid rgba(255, 255, 255, 0.2);
     }
     .progress-counter {
       font-size: 1.1rem;
@@ -496,17 +518,17 @@ import { FormPreviewService } from '../../services/form-preview.service';
     ::ng-deep {
       .custom-snackbar {
         .mdc-snackbar__surface {
-          background-color: #3f51b5 !important;
-          color: white !important;
+          background-color: #ffffff !important;
+          color: #000000 !important;
         }
         
         .mdc-snackbar__label {
-          color: white !important;
+          color: #000000 !important;
           font-weight: 500 !important;
         }
         
         .mdc-snackbar__actions .mdc-button {
-          color: white !important;
+          color: #000000 !important;
           font-weight: 600 !important;
         }
       }

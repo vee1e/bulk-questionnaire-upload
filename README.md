@@ -161,15 +161,21 @@ mongosh --eval "db.runCommand('ping')"
 
 ## Sample Performance Metrics Output
 
-Below is a real example of metrics collected for uploading 9 forms (each with ~400 questions and 3-10 options per question) on two different machines:
+Below is a real example of metrics collected for uploading 10 forms (each with ~400 questions and 3-10 options per question) based on the latest performance data:
 
-| Description                                      | Ryzen 5 5500U           | M3 Pro                  |
-| ------------------------------------------------ | ----------------------- | ----------------------- |
-| Time to validate each form file                  | 120-260ms               | 51.28ms (46.58-59.83ms) |
-| Time to process and save one form                | 240-1080ms              | 0.73ms (0.53-1.19ms)    |
-| Time to process and save all questions in a form | 1.6-2.92s               | 62.46ms (55.66-73.13ms) |
-| Average time to process one question             | 4-7ms                   | 0.15ms (0.14-0.18ms)    |
-| Average time to process one option               | 3.6-4.5ms               | 0.15ms (0.14-0.15ms)    |
-| Time to process all forms in the batch           | 15.63s                  | 2.16s (1.96-2.34s)      |
-| Number of forms processed in the batch           | 9                       | 9                       |
-| Average time to process one form in the batch    | 1.74s                   | 240.3ms (217.25-259.99) |
+| Description                                      | Time                   |
+| ------------------------------------------------ | ----------------------- |
+| Time to validate each form file                  | 45.80-123.20ms (59.98ms) |
+| Time to process and save one form                | 0.49-288.43ms (126.84ms) |
+| Time to process and save all questions in a form | 59.64-82.80ms (64.59ms) |
+| Average time to process one question             | 0.15-0.20ms (0.16ms) |
+| Average time to process one option               | 0.15-0.17ms (0.16ms) |
+| Time to process all forms in the batch           | 228.62-288.43ms (253.00ms) |
+| Number of forms processed in the batch           | 10                      |
+| Average time to process one form in the batch    | 228.62-288.43ms (253.00ms) |
+
+**Notes:**
+- Metrics collected from backend/metrics.txt on 2025-07-28
+- All times are in ms unless specified otherwise
+- Hardware used is an M3 Pro Macbook Pro, with 18GB unified memory and 512GB of storage.
+
