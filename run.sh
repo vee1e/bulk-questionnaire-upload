@@ -3,7 +3,7 @@
 PROJECT_ROOT="/Users/verma/Projects/bulk-questionnaire-upload"
 FRONTEND_PATH="$PROJECT_ROOT/frontend"
 BACKEND_PATH="$PROJECT_ROOT/backend"
-SESSION_NAME="dev-project"
+SESSION_NAME="bulk-questionnaire-upload"
 
 if ! tmux has-session -t "$SESSION_NAME"; then
     tmux new-session -s "$SESSION_NAME" -d
@@ -20,7 +20,6 @@ if ! tmux has-session -t "$SESSION_NAME"; then
     tmux send-keys -t "$SESSION_NAME:0.1" "uvicorn main:app --reload" C-m
 
     tmux attach-session -t "$SESSION_NAME"
-    open "http://localhost:4200"
 else
     echo "Tmux session '$SESSION_NAME' already exists. Attaching..."
     tmux attach-session -t "$SESSION_NAME"

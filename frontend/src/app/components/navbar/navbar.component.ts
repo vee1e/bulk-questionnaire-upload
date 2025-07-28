@@ -273,9 +273,9 @@ import { Subscription } from 'rxjs';
             border-left: 3px solid #ffffff;
             border: 1px solid rgba(255, 255, 255, 0.1);
 
-            &.current-question { 
-              border: 2px solid #ffffff; 
-              background: rgba(255, 255, 255, 0.1); 
+            &.current-question {
+              border: 2px solid #ffffff;
+              background: rgba(255, 255, 255, 0.1);
             }
 
             .question-header {

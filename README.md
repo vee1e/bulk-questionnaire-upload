@@ -163,18 +163,19 @@ mongosh --eval "db.runCommand('ping')"
 
 Below is a real example of metrics collected for uploading 10 forms (each with ~400 questions and 3-10 options per question) based on the latest performance data:
 
-| Description                                      | Time                   |
-| ------------------------------------------------ | ----------------------- |
-| Time to validate each form file                  | 45.80-123.20ms (59.98ms) |
-| Time to process and save one form                | 0.49-288.43ms (126.84ms) |
-| Time to process and save all questions in a form | 59.64-82.80ms (64.59ms) |
-| Average time to process one question             | 0.15-0.20ms (0.16ms) |
-| Average time to process one option               | 0.15-0.17ms (0.16ms) |
+| Description                                      | Time                       |
+| ------------------------------------------------ | -------------------------- |
+| Time to validate each form file                  | 45.80-123.20ms (59.98ms)   |
+| Time to process and save one form                | 0.49-288.43ms (126.84ms)   |
+| Time to process and save all questions in a form | 59.64-82.80ms (64.59ms)    |
+| Average time to process one question             | 0.15-0.20ms (0.16ms)       |
+| Average time to process one option               | 0.15-0.17ms (0.16ms)       |
 | Time to process all forms in the batch           | 228.62-288.43ms (253.00ms) |
-| Number of forms processed in the batch           | 10                      |
+| Number of forms processed in the batch           | 10                         |
 | Average time to process one form in the batch    | 228.62-288.43ms (253.00ms) |
 
 **Notes:**
+
 - Metrics collected from backend/metrics.txt on 2025-07-28
 - All times are in ms unless specified otherwise
 - Hardware used is an M3 Pro Macbook Pro, with 18GB unified memory and 512GB of storage.

@@ -309,15 +309,15 @@ import { FormPreviewService } from '../../services/form-preview.service';
           }
 
           .invalid {
-            color: white;
-            background: #F44336;
-            border: 1px solid #F44336;
+            color: #ff0000;
+            background: #1c0000;
+            border: 1px solid #660000;
           }
         }
 
         .validation-details {
-          margin-top: 0.75rem;
-          padding-top: 0.75rem;
+          margin-top: 0.00rem;
+          padding-top: 0.30rem;
           border-top: 1px solid rgba(255, 255, 255, 0.2);
           min-height: 0;
           transition: all 0.3s ease;
@@ -352,9 +352,9 @@ import { FormPreviewService } from '../../services/form-preview.service';
               }
 
               &.warning {
-                background: rgba(255, 255, 255, 0.1);
-                border-left: 3px solid #ffffff;
-                border: 1px solid rgba(255, 255, 255, 0.2);
+                background: rgba(255, 193, 7, 0.12);
+                border-left: 3px solid #FFC107;
+                border: 1px solid rgba(255, 193, 7, 0.25);
               }
 
               .validation-header {
@@ -365,8 +365,8 @@ import { FormPreviewService } from '../../services/form-preview.service';
 
                 .validation-type {
                   background: rgba(255, 255, 255, 0.1);
-                  padding: 0.125rem 0.375rem;
-                  border-radius: 12px;
+                  padding: 0.0 0.375rem;
+                  border-radius: 6px;
                   font-size: 0.7rem;
                   font-weight: 600;
                   text-transform: uppercase;
@@ -513,6 +513,24 @@ import { FormPreviewService } from '../../services/form-preview.service';
       display: flex;
       align-items: center;
       gap: 0.5rem;
+
+      ::ng-deep .mat-mdc-icon-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+
+        .mat-icon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+          margin: 0;
+        }
+      }
     }
 
     ::ng-deep {
@@ -521,12 +539,12 @@ import { FormPreviewService } from '../../services/form-preview.service';
           background-color: #ffffff !important;
           color: #000000 !important;
         }
-        
+
         .mdc-snackbar__label {
           color: #000000 !important;
           font-weight: 500 !important;
         }
-        
+
         .mdc-snackbar__actions .mdc-button {
           color: #000000 !important;
           font-weight: 600 !important;
@@ -538,12 +556,12 @@ import { FormPreviewService } from '../../services/form-preview.service';
           background-color: #F44336 !important;
           color: white !important;
         }
-        
+
         .mdc-snackbar__label {
           color: white !important;
           font-weight: 500 !important;
         }
-        
+
         .mdc-snackbar__actions .mdc-button {
           color: white !important;
           font-weight: 600 !important;
@@ -889,7 +907,7 @@ export class UploadComponent implements OnInit, OnChanges {
             if (validationResult.valid) {
               // Store old form details for comparison
               const oldFormTitle = this.updateTargetForm!.title;
-              
+
               // File is valid, proceed with update
               this.formService.updateForm(this.updateTargetForm!.id, file).subscribe({
                 next: (updatedFormDetails) => {
@@ -897,10 +915,10 @@ export class UploadComponent implements OnInit, OnChanges {
                   this.showFormDetails(updatedFormDetails.form); // Show updated details
                   this.loadingFormId = null;
                   this.updateTargetForm = null;
-                  
+
                   // Show success toast with details
                   const toastMessage = `Successfully updated "${oldFormTitle}" to "${updatedFormDetails.form.title}".`;
-                  
+
                   this.snackBar.open(toastMessage, 'Close', {
                     duration: 5000,
                     panelClass: ['custom-snackbar'],

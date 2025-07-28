@@ -26,4 +26,4 @@ async def connect_to_mongo():
 
 async def close_mongo_connection():
     """Close MongoDB connection"""
-    async_client.close() 
+    async_client.close()
