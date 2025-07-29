@@ -259,15 +259,6 @@ The application logs detailed performance metrics to `metrics.txt` including:
 - **Question/Option processing**: Individual item processing performance
 - **Cold startup tracking**: Application initialization times
 
-**Typical Performance (M3 Pro MacBook Pro):**
-- Validation: 1.76-106.22ms (4.65ms average)
-- Parse-only: 3.80-156.92ms (84.21ms average)
-- Full upload: 222.08-281.11ms (247.50ms average)
-- Question processing: 0.14-0.19ms per question
-- Option processing: 0.14-0.16ms per option
-
----
-
 ## Development & Maintenance Tips
 - **Centralize logic:** All business logic is in `services/`, and all DB access in `database_service.py`.
 - **Environment variables:** Use `.env` for DB config; never hardcode secrets.
@@ -277,8 +268,6 @@ The application logs detailed performance metrics to `metrics.txt` including:
 - **CORS:** Update allowed origins in `main.py` if frontend URL changes.
 - **Error handling:** Use structured error responses with specific error types for better user experience.
 
----
-
 ## Extending the Backend
 - **Add new endpoints:** Define in `main.py`, implement logic in `services/`, and update models as needed.
 - **Add new collections:** Update `database.py` and `database_service.py` for new MongoDB collections.
@@ -286,8 +275,6 @@ The application logs detailed performance metrics to `metrics.txt` including:
 - **Error types:** Add new error classifications in the parsing service for specific failure cases.
 - **Metrics:** Extend metrics logging for new operations or performance measurements.
 - **Documentation:** Update this README and docstrings in code for any new features or changes.
-
----
 
 ## License
 MIT
