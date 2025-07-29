@@ -1,6 +1,6 @@
 # mForm Bulk Upload Backend
 
-A FastAPI backend for validating, parsing, and storing Excel-based form data in MongoDB. Designed for robust integration with the Angular frontend and easy extensibility.
+A FastAPI backend for validating, parsing, and storing Excel-based form data in MongoDB. Designed for robust integration with the Angular frontend and easy extensibility. Features comprehensive error handling, performance metrics logging, and both parse-only and full upload capabilities.
 
 ---
 
@@ -12,6 +12,7 @@ A FastAPI backend for validating, parsing, and storing Excel-based form data in 
 - [Excel File Requirements](#excel-file-requirements)
 - [Setup & Installation](#setup--installation)
 - [Error Handling & Logging](#error-handling--logging)
+- [Performance Metrics](#performance-metrics)
 - [Development & Maintenance Tips](#development--maintenance-tips)
 - [Extending the Backend](#extending-the-backend)
 
@@ -20,9 +21,11 @@ A FastAPI backend for validating, parsing, and storing Excel-based form data in 
 ## Overview
 This backend provides:
 - Validation of Excel files for correct structure and content
+- Parse-only functionality for schema preview without database storage
 - Parsing and storage of forms, questions, and answer options in MongoDB
 - RESTful API endpoints for form management, including in-place form updates
-- Detailed error handling and logging
+- Comprehensive error handling with detailed error types and suggestions
+- Performance metrics logging for monitoring and optimization
 - CORS support for seamless frontend integration
 
 ---
@@ -60,6 +63,45 @@ This backend provides:
       "options_count": 30,
       "errors": [],
       "warnings": []
+    }
+    ```
+
+### File Parsing (Parse Only)
+- **POST** `/api/forms/parse`
+  - **Description:** Parse Excel file and return JSON schema without saving to database
+  - **Request:** `multipart/form-data` with a single file field
+  - **Response:**
+    ```json
+    {
+      "id": null,
+      "title": {"default": "Form Title"},
+      "language": "en",
+      "version": "1.0",
+      "groups": [...],
+      "settings": {...},
+      "metadata": {
+        "questions_count": 10,
+        "options_count": 30,
+        "parse_time": 0.082,
+        "created_at": "2025-07-30T00:00:00Z",
+        "sheets_found": ["Forms", "Questions Info", "Answer Options"],
+        "file_name": "example.xlsx"
+      },
+      "raw_data": {...}
+    }
+    ```
+  - **Error Response:**
+    ```json
+    {
+      "detail": {
+        "error": "Parsing failed",
+        "message": "Missing required sheet: Forms",
+        "error_type": "MISSING_SHEET",
+        "suggestions": [
+          "Ensure your Excel file contains a sheet named 'Forms'",
+          "Check sheet names for typos or extra spaces"
+        ]
+      }
     }
     ```
 
@@ -186,21 +228,43 @@ Validation will fail if required sheets or columns are missing.
      ```
      MONGODB_URL=mongodb://localhost:27017
      DATABASE_NAME=mform_bulk_upload
+     API_HOST=0.0.0.0
+     API_PORT=8000
      ```
 4. **Run the application:**
    ```bash
-   python main.py
+   uvicorn main:app --reload
    ```
    The API will be available at `http://localhost:8000`
 
 ---
 
 ## Error Handling & Logging
-- All API endpoints use structured error handling with FastAPI's `HTTPException`.
+- All API endpoints use structured error handling with FastAPI's HTTPException.
+- Enhanced error responses include specific error types and actionable suggestions.
+- Error types include: MISSING_FILE, INVALID_FILE_FORMAT, EMPTY_FILE, PARSING_ERROR, MISSING_SHEET, MISSING_COLUMNS, CORRUPTED_FILE, and more.
 - Errors and warnings during file validation are returned in the API response.
-- Application-level errors are logged using Python's `logging` module (see `main.py`, `services/`).
+- Application-level errors are logged using Python's logging module (see `main.py`, `services/`).
 - Metrics (e.g., processing times, counts) are logged to `metrics.txt` for performance monitoring.
 - Database errors are caught and logged; user-facing errors are returned with appropriate HTTP status codes.
+
+---
+
+## Performance Metrics
+
+The application logs detailed performance metrics to `metrics.txt` including:
+- **Validation times**: File validation performance per form
+- **Parse-only times**: Schema parsing without database operations  
+- **Upload processing times**: Complete form processing with database storage
+- **Question/Option processing**: Individual item processing performance
+- **Cold startup tracking**: Application initialization times
+
+**Typical Performance (M3 Pro MacBook Pro):**
+- Validation: 1.76-106.22ms (4.65ms average)
+- Parse-only: 3.80-156.92ms (84.21ms average)
+- Full upload: 222.08-281.11ms (247.50ms average)
+- Question processing: 0.14-0.19ms per question
+- Option processing: 0.14-0.16ms per option
 
 ---
 
@@ -211,6 +275,7 @@ Validation will fail if required sheets or columns are missing.
 - **Extending:** Add new endpoints in `main.py` and corresponding logic in `services/`.
 - **Logging:** Check `metrics.txt` and logs for troubleshooting and performance analysis.
 - **CORS:** Update allowed origins in `main.py` if frontend URL changes.
+- **Error handling:** Use structured error responses with specific error types for better user experience.
 
 ---
 
@@ -218,6 +283,8 @@ Validation will fail if required sheets or columns are missing.
 - **Add new endpoints:** Define in `main.py`, implement logic in `services/`, and update models as needed.
 - **Add new collections:** Update `database.py` and `database_service.py` for new MongoDB collections.
 - **Validation:** Extend `XLSFormParser` for new validation rules or file formats.
+- **Error types:** Add new error classifications in the parsing service for specific failure cases.
+- **Metrics:** Extend metrics logging for new operations or performance measurements.
 - **Documentation:** Update this README and docstrings in code for any new features or changes.
 
 ---

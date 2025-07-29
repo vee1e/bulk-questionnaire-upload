@@ -591,6 +591,144 @@ class XLSFormParser:
         finally:
             await file.seek(0)
 
+    async def parse_file_only(self, file: UploadFile) -> Dict[str, Any]:
+        """Parse Excel file and return JSON schema without saving to database"""
+        start_all = time.time()
+        try:
+            # Step 1: Read Excel file
+            try:
+                df_dict = pd.read_excel(file.file, sheet_name=None)
+                logger.info(f"Successfully loaded Excel file with sheets: {list(df_dict.keys())}")
+            except Exception as e:
+                raise Exception(f"Failed to read Excel file: {str(e)}. The file may be corrupted, password-protected, or not a valid Excel file.")
+
+            # Step 2: Validate required sheets exist
+            required_sheets = self.REQUIRED_SHEETS
+            available_sheets = list(df_dict.keys())
+            missing_sheets = [sheet for sheet in required_sheets if sheet not in available_sheets]
+            
+            if missing_sheets:
+                raise Exception(f"Missing required sheets: {missing_sheets}. Found sheets: {available_sheets}. Required sheets are: {required_sheets}")
+
+            # Step 3: Extract sheet data with validation
+            try:
+                forms_df = df_dict['Forms']
+                if forms_df.empty:
+                    raise Exception("The 'Forms' sheet is empty. Please add form metadata with required columns: Language, Title")
+                logger.info(f"Forms sheet loaded with {len(forms_df)} rows")
+            except KeyError:
+                raise Exception("Sheet 'Forms' not found. Please ensure the sheet name is exactly 'Forms' (case-sensitive)")
+            except Exception as e:
+                raise Exception(f"Error loading 'Forms' sheet: {str(e)}")
+
+            try:
+                questions_df = df_dict['Questions Info']
+                if questions_df.empty:
+                    raise Exception("The 'Questions Info' sheet is empty. Please add questions with required columns: Order, Title, View Sequence, Input Type")
+                logger.info(f"Questions Info sheet loaded with {len(questions_df)} rows")
+            except KeyError:
+                raise Exception("Sheet 'Questions Info' not found. Please ensure the sheet name is exactly 'Questions Info' (case-sensitive)")
+            except Exception as e:
+                raise Exception(f"Error loading 'Questions Info' sheet: {str(e)}")
+
+            try:
+                options_df = df_dict['Answer Options']
+                if options_df.empty:
+                    raise Exception("The 'Answer Options' sheet is empty. Please add answer options with required columns: Order, Id, Label")
+                logger.info(f"Answer Options sheet loaded with {len(options_df)} rows")
+            except KeyError:
+                raise Exception("Sheet 'Answer Options' not found. Please ensure the sheet name is exactly 'Answer Options' (case-sensitive)")
+            except Exception as e:
+                raise Exception(f"Error loading 'Answer Options' sheet: {str(e)}")
+
+            # Step 4: Validate column headers
+            try:
+                missing_form_cols = [col for col in self.REQUIRED_FORMS_COLUMNS if col not in forms_df.columns]
+                if missing_form_cols:
+                    raise Exception(f"Forms sheet missing required columns: {missing_form_cols}. Available columns: {list(forms_df.columns)}. Required columns: {self.REQUIRED_FORMS_COLUMNS}")
+            except Exception as e:
+                raise Exception(f"Forms sheet column validation failed: {str(e)}")
+
+            try:
+                missing_question_cols = [col for col in self.REQUIRED_QUESTIONS_COLUMNS if col not in questions_df.columns]
+                if missing_question_cols:
+                    raise Exception(f"Questions Info sheet missing required columns: {missing_question_cols}. Available columns: {list(questions_df.columns)}. Required columns: {self.REQUIRED_QUESTIONS_COLUMNS}")
+            except Exception as e:
+                raise Exception(f"Questions Info sheet column validation failed: {str(e)}")
+
+            try:
+                missing_option_cols = [col for col in self.REQUIRED_OPTIONS_COLUMNS if col not in options_df.columns]
+                if missing_option_cols:
+                    raise Exception(f"Answer Options sheet missing required columns: {missing_option_cols}. Available columns: {list(options_df.columns)}. Required columns: {self.REQUIRED_OPTIONS_COLUMNS}")
+            except Exception as e:
+                raise Exception(f"Answer Options sheet column validation failed: {str(e)}")
+
+            # Step 5: Parse form metadata with detailed error handling
+            try:
+                form_metadata = self._parse_form_metadata(forms_df)
+                logger.info(f"Parsed form metadata: {form_metadata}")
+            except Exception as e:
+                raise Exception(f"Failed to parse form metadata from 'Forms' sheet: {str(e)}. Check that Language and Title columns have valid data.")
+            
+            # Step 6: Parse questions data with detailed error handling
+            try:
+                questions_data = self._parse_questions_data(questions_df)
+                logger.info(f"Parsed {len(questions_data)} questions")
+                if not questions_data:
+                    raise Exception("No valid questions found. Check that the 'Questions Info' sheet has data with proper Order, Title, View Sequence, and Input Type values.")
+            except Exception as e:
+                raise Exception(f"Failed to parse questions from 'Questions Info' sheet: {str(e)}. Check data types: Order and View Sequence should be integers, Input Type should be a valid type (1-10).")
+
+            # Step 7: Parse options data with detailed error handling
+            try:
+                options_data = self._parse_options_data(options_df)
+                logger.info(f"Parsed {len(options_data)} options")
+                if not options_data:
+                    raise Exception("No valid options found. Check that the 'Answer Options' sheet has data with proper Order, Id, and Label values.")
+            except Exception as e:
+                raise Exception(f"Failed to parse options from 'Answer Options' sheet: {str(e)}. Check data types: Order and Id should be integers, Label should be text.")
+
+            # Step 8: Build structured form schema
+            try:
+                form_title = self._get_form_title(forms_df)
+                form_version = '1.0.0'
+                groups = self._parse_questions(questions_df, options_df)
+                logger.info(f"Built form schema with {len(groups)} groups")
+            except Exception as e:
+                raise Exception(f"Failed to build form schema: {str(e)}. This may be due to data inconsistencies between questions and options.")
+
+            total_time = time.time() - start_all
+            log_metric('parse_only_time', total_time)
+
+            # Step 9: Construct response
+            return {
+                'id': None,  # No ID since not saved
+                'title': form_title,
+                'version': form_version,
+                'language': form_metadata.get('language', 'en'),
+                'groups': [group.dict() for group in groups],
+                'settings': None,
+                'metadata': {
+                    'questions_count': len(questions_data),
+                    'options_count': len(options_data),
+                    'parse_time': total_time,
+                    'created_at': form_metadata.get('created_at'),
+                    'sheets_found': available_sheets,
+                    'file_name': file.filename
+                },
+                'raw_data': {
+                    'form_metadata': form_metadata,
+                    'questions': questions_data,
+                    'options': options_data
+                }
+            }
+
+        except Exception as e:
+            logger.error(f"Error parsing file {file.filename}: {str(e)}")
+            raise  # Re-raise the exception with the detailed message
+        finally:
+            await file.seek(0)
+
     def _parse_form_metadata(self, forms_df: pd.DataFrame) -> Dict[str, Any]:
         """Parse form metadata from Forms sheet"""
         metadata = {

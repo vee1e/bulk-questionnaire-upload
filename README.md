@@ -42,6 +42,9 @@ A web application for uploading and parsing Excel-based questionnaires in XLSFor
 sudo rc-service mongodb start      # OpenRC (Artix default)
 # or
 sudo systemctl start mongodb      # If using systemd
+```
+
+```
 mongosh --eval "db.runCommand('ping')"
 # Should output: { ok: 1 }
 ```
@@ -108,6 +111,11 @@ mongosh --eval "db.runCommand('ping')"
   Validate Excel file structure.
   Returns detailed validation information including sheet status, metadata, and counts.
 
+### File Parsing (Parse Only)
+- **POST** `/api/forms/parse`
+  Parse Excel file and return JSON schema without saving to database.
+  Returns structured form data including questions, options, and metadata.
+
 ### File Upload
 - **POST** `/api/upload`
   Parse and store Excel file in MongoDB.
@@ -165,18 +173,20 @@ Below is a real example of metrics collected for uploading 10 forms (each with ~
 
 | Description                                      | Time                       |
 | ------------------------------------------------ | -------------------------- |
-| Time to validate each form file                  | 45.80-123.20ms (59.98ms)   |
-| Time to process and save one form                | 0.49-288.43ms (126.84ms)   |
-| Time to process and save all questions in a form | 59.64-82.80ms (64.59ms)    |
-| Average time to process one question             | 0.15-0.20ms (0.16ms)       |
-| Average time to process one option               | 0.15-0.17ms (0.16ms)       |
-| Time to process all forms in the batch           | 228.62-288.43ms (253.00ms) |
+| Time to validate each form file                  | 1.76-106.22ms (4.65ms)    |
+| Time to parse each form (parse-only endpoint)    | 3.80-156.92ms (84.21ms)   |
+| Time to process and save one form                | 0.49-288.43ms (126.84ms)  |
+| Time to process and save all questions in a form | 59.64-82.80ms (64.59ms)   |
+| Average time to process one question             | 0.14-0.19ms (0.16ms)      |
+| Average time to process one option               | 0.14-0.16ms (0.15ms)      |
+| Time to process all forms in the batch           | 222.08-281.11ms (247.50ms)|
 | Number of forms processed in the batch           | 10                         |
-| Average time to process one form in the batch    | 228.62-288.43ms (253.00ms) |
+| Average time to process one form in the batch    | 222.08-281.11ms (247.50ms)|
 
 **Notes:**
 
-- Metrics collected from backend/metrics.txt on 2025-07-28
+- Metrics collected from backend/metrics.txt on 2025-07-30
 - All times are in ms unless specified otherwise
 - Hardware used is an M3 Pro Macbook Pro, with 18GB unified memory and 512GB of storage.
+- Parse-only endpoint provides fast schema preview without database operations
 

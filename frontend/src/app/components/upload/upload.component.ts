@@ -7,7 +7,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
-import { FormService, FormData, FormDetails, OptionData } from '../../services/form.service';
+import { FormService, FormData, FormDetails, OptionData, ParsedSchema } from '../../services/form.service';
 import { FormValidation, ValidationError, ValidationWarning } from '../../models/form.model';
 import { FormPreviewService } from '../../services/form-preview.service';
 
@@ -25,24 +25,39 @@ import { FormPreviewService } from '../../services/form-preview.service';
     MatSnackBarModule
   ],
   template: `
-    <div *ngIf="isValidating || isUploading || isDeletingAll" class="global-upload-progress"
-         [ngStyle]="isValidating ? {'background': 'rgba(0, 0, 0, 0.95)'} : isUploading ? {'background': 'rgba(0, 0, 0, 0.95)'} : isDeletingAll ? {'background': 'rgba(244, 67, 54, 0.95)'} : {}">
-      <div class="progress-counter" *ngIf="isValidating">
+    <div *ngIf="isValidating || isUploading || isDeletingAll || isParsing" class="global-upload-progress"
+         [ngClass]="{
+           'bg-orange': isValidating || isUploading,
+           'bg-purple': isParsing,
+           'bg-red': isDeletingAll
+         }">
+      <div class="progress-counter" 
+           [ngClass]="{'counter-orange': isValidating || isUploading, 'counter-purple': isParsing, 'counter-red': isDeletingAll}" 
+           *ngIf="isValidating">
         Validating {{validationProgress.current}}/{{validationProgress.total}}...
       </div>
-      <div class="progress-counter" *ngIf="isUploading">
+      <div class="progress-counter" 
+           [ngClass]="{'counter-orange': isValidating || isUploading, 'counter-purple': isParsing, 'counter-red': isDeletingAll}" 
+           *ngIf="isUploading">
         Processing {{uploadProgress.current}}/{{uploadProgress.total}}...
       </div>
-      <div class="progress-counter" *ngIf="isDeletingAll">
+      <div class="progress-counter" 
+           [ngClass]="{'counter-orange': isValidating || isUploading, 'counter-purple': isParsing, 'counter-red': isDeletingAll}" 
+           *ngIf="isParsing">
+        Parsing {{parseProgress.current}}/{{parseProgress.total}}...
+      </div>
+      <div class="progress-counter" 
+           [ngClass]="{'counter-orange': isValidating || isUploading, 'counter-purple': isParsing, 'counter-red': isDeletingAll}" 
+           *ngIf="isDeletingAll">
         Deleting {{deleteProgress.current}}/{{deleteProgress.total}}...
       </div>
       <mat-progress-bar
         color="primary"
         [ngClass]="{
           'bar-orange': isValidating || isUploading,
+          'bar-purple': isParsing,
           'bar-red': isDeletingAll
         }"
-        [ngStyle]="isValidating ? {'background': '#ff9800'} : isUploading ? {'background': '#ff9800'} : isDeletingAll ? {'background': '#F44336'} : {}"
         mode="indeterminate">
       </mat-progress-bar>
     </div>
@@ -79,6 +94,10 @@ import { FormPreviewService } from '../../services/form-preview.service';
               <mat-icon>check_circle</mat-icon>
               {{isValidating ? 'Validating...' : 'Validate All'}}
             </button>
+            <button mat-raised-button color="warn" (click)="parseFilesOnly()" [disabled]="isParsing || selectedFiles.length === 0">
+              <mat-icon>preview</mat-icon>
+              {{isParsing ? 'Parsing...' : 'Parse Only'}}
+            </button>
             <button mat-raised-button color="primary" (click)="uploadFiles()" [disabled]="isUploading || !allValid">
               <mat-icon>upload</mat-icon>
               {{isUploading ? 'Uploading...' : 'Upload'}}
@@ -87,7 +106,7 @@ import { FormPreviewService } from '../../services/form-preview.service';
           <div class="selected-file" *ngFor="let file of selectedFiles">
             <div class="file-info">
               <mat-icon>description</mat-icon>
-              <span class="file-name">{{file.name}}</span>
+              <span class="file-name" [title]="file.name">{{file.name}}</span>
               <span *ngIf="validationResults[file.name]"
                     [ngClass]="{'valid': validationResults[file.name].valid, 'invalid': !validationResults[file.name].valid}"
                     class="validation-status">
@@ -114,7 +133,10 @@ import { FormPreviewService } from '../../services/form-preview.service';
             <!-- Detailed Warning Messages -->
             <div *ngIf="validationResults[file.name] && validationResults[file.name].warnings && validationResults[file.name].warnings!.length > 0" class="validation-details">
               <div class="warning-section">
-                <h5 class="warning-title">⚠️ Warnings ({{validationResults[file.name].warnings!.length}}):</h5>
+                <h5 class="warning-title">
+                  <mat-icon class="warning-icon">warning</mat-icon>
+                  Warnings ({{validationResults[file.name].warnings!.length}}):
+                </h5>
                 <div class="validation-item warning" *ngFor="let warning of validationResults[file.name].warnings">
                   <div class="validation-header">
                     <span class="validation-type">{{getWarningTypeLabel(warning.type)}}</span>
@@ -124,6 +146,84 @@ import { FormPreviewService } from '../../services/form-preview.service';
                   </div>
                   <div class="validation-message">{{warning.message}}</div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Parsed Results Display -->
+        <div *ngIf="getParsedResultKeys().length > 0" class="parsed-results">
+          <div class="parsed-results-header">
+            <h3>
+              <mat-icon class="schema-header-icon">description</mat-icon>
+              Parsed Schemas (Parse Only - Not Saved)
+            </h3>
+          </div>
+          <div class="parsed-file" *ngFor="let fileName of getParsedResultKeys()">
+            <div class="parsed-file-info">
+              <mat-icon>description</mat-icon>
+              <span class="file-name" [title]="fileName">{{fileName}}</span>
+              <span class="parsed-status" 
+                    [ngClass]="{'parsed-success': parsedResults[fileName].valid !== false, 'parsed-error': parsedResults[fileName].valid === false}">
+                {{parsedResults[fileName].valid === false ? 'Parsing Failed' : 'Parsed Successfully'}}
+              </span>
+            </div>
+            
+            <!-- Success Display -->
+            <div *ngIf="parsedResults[fileName].valid !== false" class="parsed-details">
+              <div class="schema-summary">
+                <div class="schema-item">
+                  <strong>Title:</strong> 
+                  <span class="title-text" [title]="parsedResults[fileName].title?.default || 'N/A'">
+                    {{parsedResults[fileName].title?.default || 'N/A'}}
+                  </span>
+                </div>
+                <div class="schema-item">
+                  <strong>Language:</strong> {{parsedResults[fileName].language}}
+                </div>
+                <div class="schema-item">
+                  <strong>Questions:</strong> {{parsedResults[fileName].metadata?.questions_count || 0}}
+                </div>
+                <div class="schema-item">
+                  <strong>Options:</strong> {{parsedResults[fileName].metadata?.options_count || 0}}
+                </div>
+                <div class="schema-item">
+                  <strong>Parse Time:</strong> {{parsedResults[fileName].metadata?.parse_time?.toFixed(3) || 0}}s
+                </div>
+              </div>
+              <div class="schema-actions">
+                <button mat-icon-button (click)="downloadParsedSchema(fileName)" style="color: white;" matTooltip="Download JSON">
+                  <mat-icon style="color: white;">download</mat-icon>
+                </button>
+                <button mat-icon-button color="primary" (click)="viewParsedSchema(fileName)" matTooltip="View Schema">
+                  <mat-icon>visibility</mat-icon>
+                </button>
+              </div>
+            </div>
+
+            <!-- Error Display -->
+            <div *ngIf="parsedResults[fileName].valid === false" class="error-details">
+              <div class="error-summary">
+                <div class="error-message">
+                  <mat-icon class="error-icon">error</mat-icon>
+                  <span>{{parsedResults[fileName].message}}</span>
+                </div>
+                <div class="error-type" *ngIf="parsedResults[fileName].error_type">
+                  <strong>Error Type:</strong> {{parsedResults[fileName].error_type}}
+                </div>
+              </div>
+              
+              <!-- Error Suggestions -->
+              <div *ngIf="parsedResults[fileName].errors && parsedResults[fileName].errors[0]?.suggestions?.length > 0" class="error-suggestions">
+                <h5>
+                  <mat-icon class="suggestion-icon">lightbulb</mat-icon>
+                  Suggestions to fix this issue:
+                </h5>
+                <ul class="suggestions-list">
+                  <li *ngFor="let suggestion of parsedResults[fileName].errors[0].suggestions">
+                    {{suggestion}}
+                  </li>
+                </ul>
               </div>
             </div>
           </div>
@@ -148,7 +248,7 @@ import { FormPreviewService } from '../../services/form-preview.service';
               <mat-icon *ngIf="loadingFormId !== form.id">description</mat-icon>
               <mat-spinner *ngIf="loadingFormId === form.id" diameter="24" class="loading-spinner"></mat-spinner>
               <div class="form-details">
-                <h4>{{form.title}}</h4>
+                <h4 class="form-title" [title]="form.title">{{form.title}}</h4>
                 <p>{{form.language}} • {{form.version}} • {{form.created_at | date:'short'}} </p>
               </div>
             </div>
@@ -169,6 +269,107 @@ import { FormPreviewService } from '../../services/form-preview.service';
       </mat-card-content>
     </mat-card>
     <input type="file" accept=".xls,.xlsx" #updateFileInput id="global-update-file-input" style="display: none" (change)="onUpdateFileSelected($event)">
+    
+    <!-- Schema Modal -->
+    <div *ngIf="showSchemaModal" class="schema-modal-overlay" (click)="closeSchemaModal()">
+      <div class="schema-modal-content" (click)="$event.stopPropagation()">
+        <div class="schema-modal-header">
+          <h3>
+            <mat-icon class="schema-modal-icon">description</mat-icon>
+            Parsed Schema: {{selectedSchemaFileName}}
+          </h3>
+          <button mat-icon-button (click)="closeSchemaModal()" class="close-modal-btn">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+        
+        <div class="schema-modal-body">
+          <div class="schema-section">
+            <h4>
+              <mat-icon class="section-icon">info</mat-icon>
+              Form Information
+            </h4>
+            <div class="schema-info-grid">
+              <div class="info-item">
+                <strong>Title:</strong> 
+                <span>{{selectedSchema?.title?.default || 'N/A'}}</span>
+              </div>
+              <div class="info-item">
+                <strong>Language:</strong> 
+                <span>{{selectedSchema?.language || 'N/A'}}</span>
+              </div>
+              <div class="info-item">
+                <strong>Version:</strong> 
+                <span>{{selectedSchema?.version || 'N/A'}}</span>
+              </div>
+              <div class="info-item">
+                <strong>Questions:</strong> 
+                <span>{{selectedSchema?.metadata?.questions_count || 0}}</span>
+              </div>
+              <div class="info-item">
+                <strong>Options:</strong> 
+                <span>{{selectedSchema?.metadata?.options_count || 0}}</span>
+              </div>
+              <div class="info-item">
+                <strong>Parse Time:</strong> 
+                <span>{{selectedSchema?.metadata?.parse_time?.toFixed(3) || 0}}s</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="schema-section" *ngIf="selectedSchema?.groups && selectedSchema?.groups.length > 0">
+            <h4>
+              <mat-icon class="section-icon">quiz</mat-icon>
+              Questions Structure
+            </h4>
+            <div class="questions-container">
+              <div *ngFor="let group of selectedSchema.groups" class="question-group">
+                <h5 class="group-title">{{group.label?.default || 'Default Group'}}</h5>
+                <div *ngFor="let question of group.questions" class="question-item">
+                  <div class="question-header">
+                    <span class="question-name">#{{question.name}}</span>
+                    <span class="question-type">{{question.type}}</span>
+                  </div>
+                  <div class="question-label">{{question.label?.default}}</div>
+                  <div *ngIf="question.choices && question.choices.length > 0" class="question-choices">
+                    <div class="choice-header">Choices:</div>
+                    <div *ngFor="let choice of question.choices" class="choice-item">
+                      <span class="choice-name">{{choice.name}}</span>
+                      <span class="choice-label">{{choice.label?.default}}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="schema-section">
+            <h4>
+              <mat-icon class="section-icon">code</mat-icon>
+              Raw JSON Schema
+            </h4>
+            <div class="json-container">
+              <pre class="json-content">{{formatJsonSchema(selectedSchema)}}</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="schema-modal-actions">
+          <button mat-raised-button color="accent" (click)="copySchemaToClipboard()">
+            <mat-icon>content_copy</mat-icon>
+            Copy JSON
+          </button>
+          <button mat-raised-button color="primary" (click)="downloadSchemaFromModal()">
+            <mat-icon>download</mat-icon>
+            Download JSON
+          </button>
+          <button mat-raised-button (click)="closeSchemaModal()">
+            <mat-icon>close</mat-icon>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
   `,
   styles: [`
     .upload-card {
@@ -289,6 +490,11 @@ import { FormPreviewService } from '../../services/form-preview.service';
             font-weight: 500;
             display: flex;
             align-items: center;
+            max-width: 250px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            cursor: help;
           }
 
           .validation-status {
@@ -296,7 +502,7 @@ import { FormPreviewService } from '../../services/form-preview.service';
             border-radius: 8px;
             font-size: 0.8rem;
             font-weight: bold;
-            margin-left: 0.5rem;
+            margin-left: auto;
             white-space: nowrap;
             display: flex;
             align-items: center;
@@ -337,6 +543,11 @@ import { FormPreviewService } from '../../services/form-preview.service';
 
             .warning-title {
               color: #ffffff;
+              display: flex;
+              align-items: center;
+              margin: 0 0 0.5rem 0;
+              font-size: 0.875rem;
+              font-weight: 600;
             }
 
             .validation-item {
@@ -398,6 +609,239 @@ import { FormPreviewService } from '../../services/form-preview.service';
         gap: 1rem;
         justify-content: center;
       }
+    }
+
+    .parsed-results {
+      border-top: 2px dashed #ffffff;
+      border-radius: 0;
+      border-right: none;
+      border-bottom: none;
+      border-left: none;
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+
+    .parsed-results-header {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 16px;
+
+      h3 {
+        display: flex;
+        align-items: center;
+        margin: 0;
+        color: #ffffff;
+        font-weight: 600;
+      }
+    }
+
+    .parsed-file {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      padding: 1rem;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .parsed-file-info {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+      min-height: 2rem;
+
+      mat-icon {
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .file-name {
+        flex: 1;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+      }
+
+      .parsed-status {
+        padding: 0.25rem 0.5rem;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: bold;
+        margin-left: 0.5rem;
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
+      }
+
+      .parsed-status.parsed-success {
+        color: #4CAF50;
+        background: rgba(76, 175, 80, 0.1);
+        border: 1px solid rgba(76, 175, 80, 0.3);
+      }
+
+      .parsed-status.parsed-error {
+        color: #F44336;
+        background: rgba(244, 67, 54, 0.1);
+        border: 1px solid rgba(244, 67, 54, 0.3);
+      }
+    }
+
+    .parsed-details {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .schema-summary {
+      flex: 1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+      color: rgba(255, 255, 255, 0.8);
+      align-items: flex-start;
+    }
+
+    .schema-item {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      min-width: fit-content;
+      padding: 0.1rem 0;
+    }
+
+    .schema-item strong {
+      color: #ffffff;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .title-text {
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      cursor: help;
+    }
+
+    .schema-actions {
+      display: flex;
+      gap: 0.5rem;
+
+      ::ng-deep .mat-mdc-icon-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+
+        .mat-icon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+          margin: 0;
+        }
+      }
+    }
+
+    .error-details {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .error-summary {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .error-message {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: #F44336;
+      font-weight: 500;
+      flex-wrap: nowrap;
+    }
+
+    .error-icon {
+      color: #F44336 !important;
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+
+    .warning-icon {
+      color: #FFC107 !important;
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      margin-right: 0.25rem;
+      vertical-align: middle;
+    }
+
+    .schema-header-icon {
+      color: #ffffff !important;
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+      margin-right: 0.5rem;
+      vertical-align: middle;
+    }
+
+    .suggestion-icon {
+      color: #FFC107 !important;
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      margin-right: 0.25rem;
+      vertical-align: middle;
+    }
+
+    .error-type {
+      font-size: 0.9rem;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .error-suggestions {
+      background: rgba(255, 193, 7, 0.1);
+      border: 1px solid rgba(255, 193, 7, 0.3);
+      border-radius: 6px;
+      padding: 0.75rem;
+    }
+
+    .error-suggestions h5 {
+      margin: 0 0 0.5rem 0;
+      color: #FFC107;
+      font-size: 0.9rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+    }
+
+    .suggestions-list {
+      margin: 0;
+      padding-left: 1.2rem;
+      list-style-type: disc;
+    }
+
+    .suggestions-list li {
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 0.85rem;
+      line-height: 1.4;
+      margin-bottom: 0.25rem;
     }
 
     .form-list {
@@ -468,6 +912,17 @@ import { FormPreviewService } from '../../services/form-preview.service';
         font-weight: 500;
       }
 
+      .form-title {
+        max-width: 300px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        cursor: help;
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 500;
+      }
+
       p {
         margin: 0;
         font-size: 0.875rem;
@@ -509,6 +964,72 @@ import { FormPreviewService } from '../../services/form-preview.service';
       font-weight: 500;
       margin-bottom: 0.2rem;
     }
+
+    /* Progress Bar Colors - Centralized */
+    ::ng-deep {
+      .mat-mdc-progress-bar.bar-orange {
+        .mdc-linear-progress__bar {
+          background-color: #ff9800 !important;
+        }
+        .mdc-linear-progress__buffer {
+          background-color: rgba(255, 152, 0, 0.3) !important;
+        }
+        .mdc-linear-progress__bar-inner {
+          border-color: #ff9800 !important;
+        }
+      }
+
+      .mat-mdc-progress-bar.bar-purple {
+        .mdc-linear-progress__bar {
+          background-color: #9c27b0 !important;
+        }
+        .mdc-linear-progress__buffer {
+          background-color: rgba(156, 39, 176, 0.3) !important;
+        }
+        .mdc-linear-progress__bar-inner {
+          border-color: #9c27b0 !important;
+        }
+      }
+
+      .mat-mdc-progress-bar.bar-red {
+        .mdc-linear-progress__bar {
+          background-color: #F44336 !important;
+        }
+        .mdc-linear-progress__buffer {
+          background-color: rgba(244, 67, 54, 0.3) !important;
+        }
+        .mdc-linear-progress__bar-inner {
+          border-color: #F44336 !important;
+        }
+      }
+    }
+
+    /* Progress Counter Text Colors */
+    .progress-counter.counter-orange {
+      color: #ff9800;
+    }
+
+    .progress-counter.counter-purple {
+      color: black;
+    }
+
+    .progress-counter.counter-red {
+      color: black;
+    }
+
+    /* Progress Overlay Background Colors */
+    .global-upload-progress.bg-orange {
+      background: rgba(0, 0, 0, 0.95) !important;
+    }
+
+    .global-upload-progress.bg-purple {
+      background: rgba(156, 39, 176, 0.95) !important;
+    }
+
+    .global-upload-progress.bg-red {
+      background: rgba(244, 67, 54, 0.95) !important;
+    }
+
     .form-actions {
       display: flex;
       align-items: center;
@@ -568,22 +1089,288 @@ import { FormPreviewService } from '../../services/form-preview.service';
         }
       }
     }
+
+    /* Responsive title truncation */
+    @media (max-width: 768px) {
+      .title-text {
+        max-width: 150px;
+      }
+      
+      .form-title {
+        max-width: 200px;
+      }
+
+      .file-name {
+        max-width: 180px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .title-text {
+        max-width: 100px;
+      }
+      
+      .form-title {
+        max-width: 150px;
+      }
+
+      .file-name {
+        max-width: 120px;
+      }
+    }
+
+    /* Schema Modal Styles */
+    .schema-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 5000;
+      backdrop-filter: blur(4px);
+    }
+
+    .schema-modal-content {
+      background: #1e1e1e;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      width: 90vw;
+      max-width: 800px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+    }
+
+    .schema-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.5rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.02);
+
+      h3 {
+        margin: 0;
+        color: #ffffff;
+        font-size: 1.2rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .schema-modal-icon {
+        color: #ffffff !important;
+        font-size: 20px;
+      }
+
+      .close-modal-btn {
+        color: #ffffff !important;
+      }
+    }
+
+    .schema-modal-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem;
+    }
+
+    .schema-section {
+      margin-bottom: 2rem;
+
+      h4 {
+        margin: 0 0 1rem 0;
+        color: #ffffff;
+        font-size: 1rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .section-icon {
+        color: #ffffff !important;
+        font-size: 18px;
+      }
+    }
+
+    .schema-info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .info-item {
+      display: flex;
+      gap: 0.5rem;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 0.9rem;
+
+      strong {
+        color: #ffffff;
+        min-width: 80px;
+      }
+    }
+
+    .questions-container {
+      max-height: 300px;
+      overflow-y: auto;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 1rem;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .question-group {
+      margin-bottom: 1.5rem;
+
+      .group-title {
+        margin: 0 0 0.75rem 0;
+        color: #ffffff;
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+    }
+
+    .question-item {
+      margin-bottom: 1rem;
+      padding: 0.75rem;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.03);
+
+      .question-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+
+        .question-name {
+          color: #ffffff;
+          font-weight: 600;
+          font-size: 0.85rem;
+        }
+
+        .question-type {
+          background: rgba(255, 255, 255, 0.1);
+          color: #ffffff;
+          padding: 0.2rem 0.5rem;
+          border-radius: 4px;
+          font-size: 0.75rem;
+          font-weight: 500;
+        }
+      }
+
+      .question-label {
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+      }
+
+      .question-choices {
+        margin-top: 0.5rem;
+
+        .choice-header {
+          color: #ffffff;
+          font-size: 0.8rem;
+          font-weight: 600;
+          margin-bottom: 0.25rem;
+        }
+
+        .choice-item {
+          display: flex;
+          gap: 0.5rem;
+          margin-bottom: 0.25rem;
+          font-size: 0.8rem;
+
+          .choice-name {
+            color: #ffffff;
+            font-weight: 500;
+            min-width: 30px;
+          }
+
+          .choice-label {
+            color: rgba(255, 255, 255, 0.7);
+          }
+        }
+      }
+    }
+
+    .json-container {
+      max-height: 300px;
+      overflow: auto;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      background: #0d1117;
+    }
+
+    .json-content {
+      margin: 0;
+      padding: 1rem;
+      color: #ffffff;
+      font-family: 'Courier New', monospace;
+      font-size: 0.8rem;
+      line-height: 1.4;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .schema-modal-actions {
+      display: flex;
+      gap: 0.75rem;
+      padding: 1.5rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.02);
+      justify-content: flex-end;
+    }
+
+    @media (max-width: 768px) {
+      .schema-modal-content {
+        width: 95vw;
+        max-height: 95vh;
+      }
+
+      .schema-info-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .schema-modal-actions {
+        flex-direction: column;
+      }
+    }
   `]
 })
 export class UploadComponent implements OnInit, OnChanges {
   isDragOver = false;
-  isUploading = false;
   selectedFiles: File[] = [];
   parsedForms: FormData[] = [];
   filteredForms: FormData[] = [];
-  isDeletingAll = false;
   @Input() searchQuery: string = '';
-  validationResults: { [filename: string]: FormValidation } = {};
-  isValidating = false;
-  allValid = false;
+  validationResults: { [key: string]: FormValidation } = {};
+  parsedResults: { [key: string]: any } = {};
   validationProgress = { current: 0, total: 0 };
   uploadProgress = { current: 0, total: 0 };
   deleteProgress = { current: 0, total: 0 };
+  parseProgress = { current: 0, total: 0 };
+  isValidating = false;
+  isUploading = false;
+  isDeletingAll = false;
+  isParsing = false;
+  allValid = false;
+  
+  // Schema modal properties
+  showSchemaModal = false;
+  selectedSchemaFileName = '';
+  selectedSchema: any = null;
+  
   loadingFormId: string | null = null;
   currentPreviewedFormId: string | null = null;
   updateTargetForm: FormData | null = null;
@@ -658,18 +1445,24 @@ export class UploadComponent implements OnInit, OnChanges {
     event.stopPropagation();
     this.isDragOver = false;
 
-    const files = event.dataTransfer?.files;
-    if (files && files.length > 0) {
-      this.selectedFiles = Array.from(files);
+    const files = Array.from(event.dataTransfer?.files || []) as File[];
+    const excelFiles = files.filter(file => file.name.endsWith('.xls') || file.name.endsWith('.xlsx'));
+    
+    if (excelFiles.length > 0) {
+      this.selectedFiles = [...this.selectedFiles, ...excelFiles];
+      this.validationResults = {};
+      this.parsedResults = {}; // Clear previous parsed results
+      this.allValid = false;
     }
   }
 
-  onFileSelected(event: Event) {
-    const input = event.target as HTMLInputElement;
-    if (input.files && input.files.length > 0) {
-      this.selectedFiles = Array.from(input.files);
-    }
-    input.value = '';
+  onFileSelected(event: any) {
+    const files = Array.from(event.target.files) as File[];
+    this.selectedFiles = [...this.selectedFiles, ...files];
+    this.validationProgress = { current: 0, total: 0 };
+    this.validationResults = {};
+    this.parsedResults = {}; // Clear previous parsed results
+    this.allValid = false;
   }
 
   validateFiles() {
@@ -976,6 +1769,234 @@ export class UploadComponent implements OnInit, OnChanges {
           }
         });
       }
+    }
+  }
+
+  parseFilesOnly() {
+    if (this.selectedFiles.length === 0) return;
+    this.isParsing = true;
+    this.validationResults = {};
+    this.parsedResults = {}; // Clear previous parsed results
+    this.parseProgress = { current: 0, total: this.selectedFiles.length };
+    let parsed = 0;
+    this.selectedFiles.forEach(file => {
+      this.formService.parseFile(file).subscribe({
+        next: (result) => {
+          this.parsedResults[file.name] = result;
+          parsed++;
+          this.parseProgress.current = parsed;
+          if (parsed === this.selectedFiles.length) {
+            this.isParsing = false;
+            this.selectedFiles = [];
+            this.loadForms(); // Reload forms to show parsed results
+          }
+        },
+        error: (error: any) => {
+          console.log('Parse error for', file.name, error);
+          console.log('Error structure:', {
+            hasError: !!error.error,
+            hasDetail: !!(error.error && error.error.detail),
+            errorKeys: error.error ? Object.keys(error.error) : [],
+            detailKeys: (error.error && error.error.detail) ? Object.keys(error.error.detail) : []
+          });
+          
+          // Handle enhanced backend error format
+          let errorMessage = 'Parsing failed';
+          let errorType = 'UNKNOWN_ERROR';
+          let suggestions: string[] = [];
+          
+          try {
+            // The backend returns errors nested under 'detail'
+            let errorDetail = null;
+            
+            if (error.error && error.error.detail) {
+              // HTTP error response with nested detail
+              errorDetail = error.error.detail;
+            } else if (error.error && typeof error.error === 'object') {
+              // Direct error object
+              errorDetail = error.error;
+            }
+            
+            if (errorDetail) {
+              errorMessage = errorDetail.message || errorDetail.error || 'Parsing failed';
+              errorType = errorDetail.error_type || 'UNKNOWN_ERROR';
+              suggestions = errorDetail.suggestions || [];
+            } else if (typeof error.error === 'string') {
+              errorMessage = error.error;
+              // Try to extract error type from error message
+              if (error.error.includes('JSON.parse')) {
+                errorType = 'INVALID_RESPONSE';
+                errorMessage = 'Server returned invalid response. This may be due to file corruption or server error.';
+                suggestions = [
+                  'Try uploading the file again',
+                  'Check that the file is a valid Excel workbook',
+                  'Contact support if the problem persists'
+                ];
+              }
+            } else if (error.message) {
+              errorMessage = error.message;
+            }
+
+            // Handle HTTP error status codes
+            if (error.status) {
+              if (error.status === 413) {
+                errorType = 'FILE_TOO_LARGE';
+                errorMessage = 'File is too large to process';
+                suggestions = ['Try uploading a smaller file', 'Remove unnecessary data from the Excel file'];
+              } else if (error.status === 500) {
+                errorType = 'SERVER_ERROR';
+                errorMessage = 'Internal server error occurred while processing the file';
+                suggestions = ['Try uploading the file again', 'Contact support if the problem persists'];
+              } else if (error.status === 0) {
+                errorType = 'CONNECTION_ERROR';
+                errorMessage = 'Unable to connect to the server';
+                suggestions = ['Check your internet connection', 'Try refreshing the page'];
+              }
+            }
+          } catch (e) {
+            console.error('Error parsing error response:', e);
+            errorMessage = 'An unexpected error occurred while parsing the file';
+            errorType = 'PARSE_ERROR';
+            suggestions = ['Please try uploading the file again'];
+          }
+
+          this.parsedResults[file.name] = {
+            valid: false,
+            message: errorMessage,
+            error_type: errorType,
+            errors: [{
+              type: errorType,
+              message: errorMessage,
+              location: 'file',
+              suggestions: suggestions
+            }],
+            warnings: [],
+            file_name: file.name,
+            timestamp: new Date().toISOString()
+          };
+
+          // Show user-friendly error notification
+          let snackBarMessage = `Failed to parse ${file.name}`;
+          if (errorType === 'INVALID_FILE_FORMAT') {
+            snackBarMessage = `${file.name} is not a valid Excel file`;
+          } else if (errorType === 'MISSING_SHEET') {
+            snackBarMessage = `${file.name} is missing required sheets`;
+          } else if (errorType === 'MISSING_COLUMNS') {
+            snackBarMessage = `${file.name} is missing required columns`;
+          } else if (errorType === 'EMPTY_SHEET') {
+            snackBarMessage = `${file.name} has empty sheets`;
+          } else if (errorType === 'EMPTY_FILE') {
+            snackBarMessage = `${file.name} is empty`;
+          } else if (errorType === 'FILE_ACCESS_ERROR') {
+            snackBarMessage = `Cannot read ${file.name} - file may be corrupted`;
+          } else if (errorType === 'DATA_FORMAT_ERROR' || errorType === 'INVALID_DATA_TYPE') {
+            snackBarMessage = `${file.name} has invalid data format`;
+          } else if (errorType === 'CORRUPTED_FILE') {
+            snackBarMessage = `${file.name} appears to be corrupted`;
+          } else if (errorType === 'SCHEMA_VALIDATION_ERROR') {
+            snackBarMessage = `${file.name} has data validation errors`;
+          } else if (errorType === 'INVALID_RESPONSE') {
+            snackBarMessage = `Server error processing ${file.name}`;
+          } else if (errorType === 'FILE_TOO_LARGE') {
+            snackBarMessage = `${file.name} is too large`;
+          } else if (errorType === 'CONNECTION_ERROR') {
+            snackBarMessage = 'Connection error - check your internet';
+          }
+
+          this.snackBar.open(snackBarMessage, 'Close', {
+            duration: 5000,
+            panelClass: 'custom-snackbar-error'
+          });
+
+          parsed++;
+          this.parseProgress.current = parsed;
+          if (parsed === this.selectedFiles.length) {
+            this.isParsing = false;
+            this.selectedFiles = [];
+            this.loadForms(); // Reload forms to show parsed results
+          }
+        }
+      });
+    });
+  }
+
+  downloadParsedSchema(fileName: string) {
+    const schema = this.parsedResults[fileName];
+    if (schema) {
+      const json = JSON.stringify(schema, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${fileName.replace('.xlsx', '')}-parsed-schema.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    }
+  }
+
+  viewParsedSchema(fileName: string) {
+    const schema = this.parsedResults[fileName];
+    if (schema) {
+      this.selectedSchemaFileName = fileName;
+      this.selectedSchema = schema;
+      this.showSchemaModal = true;
+    }
+  }
+
+  getParsedResultKeys(): string[] {
+    return Object.keys(this.parsedResults);
+  }
+
+  closeSchemaModal(): void {
+    this.showSchemaModal = false;
+    this.selectedSchema = null;
+    this.selectedSchemaFileName = '';
+  }
+
+  copySchemaToClipboard(): void {
+    if (this.selectedSchema) {
+      const json = JSON.stringify(this.selectedSchema, null, 2);
+      navigator.clipboard.writeText(json).then(() => {
+        this.snackBar.open('Schema copied to clipboard!', 'Close', {
+          duration: 3000,
+          panelClass: ['custom-snackbar']
+        });
+      }).catch(err => {
+        console.error('Failed to copy schema to clipboard:', err);
+        this.snackBar.open('Failed to copy schema to clipboard.', 'Close', {
+          duration: 3000,
+          panelClass: ['custom-snackbar-error']
+        });
+      });
+    }
+  }
+
+  downloadSchemaFromModal(): void {
+    if (this.selectedSchema) {
+      const json = JSON.stringify(this.selectedSchema, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${this.selectedSchemaFileName.replace('.xlsx', '')}-parsed-schema.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    }
+  }
+
+  formatJsonSchema(schema: any): string {
+    if (!schema) return '';
+    return JSON.stringify(schema, null, 2);
+  }
+
+  @HostListener('document:keydown.escape', ['$event'])
+  onEscapeKey(event: KeyboardEvent): void {
+    if (this.showSchemaModal) {
+      this.closeSchemaModal();
     }
   }
 }
