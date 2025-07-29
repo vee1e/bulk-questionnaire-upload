@@ -43,6 +43,26 @@ export interface FormsResponse {
     count: number;
 }
 
+export interface ParsedSchema {
+    id: string | null;
+    title: { default: string };
+    version: string;
+    language: string;
+    groups: any[];
+    settings: any;
+    metadata: {
+        questions_count: number;
+        options_count: number;
+        parse_time: number;
+        created_at: string;
+    };
+    raw_data: {
+        form_metadata: any;
+        questions: any[];
+        options: any[];
+    };
+}
+
 @Injectable({
     providedIn: 'root'
 })
@@ -89,5 +109,11 @@ export class FormService {
         const formData = new FormData();
         formData.append('file', file);
         return this.http.put<FormDetails>(`${this.apiUrl}/forms/${formId}/update`, formData);
+    }
+
+    parseFile(file: File): Observable<ParsedSchema> {
+        const formData = new FormData();
+        formData.append('file', file);
+        return this.http.post<ParsedSchema>(`${this.apiUrl}/forms/parse`, formData);
     }
 }
