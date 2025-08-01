@@ -254,7 +254,7 @@ Validation will fail if required sheets or columns are missing.
 
 The application logs detailed performance metrics to `metrics.txt` including:
 - **Validation times**: File validation performance per form
-- **Parse-only times**: Schema parsing without database operations  
+- **Parse-only times**: Schema parsing without database operations
 - **Upload processing times**: Complete form processing with database storage
 - **Question/Option processing**: Individual item processing performance
 - **Cold startup tracking**: Application initialization times
@@ -275,6 +275,24 @@ The application logs detailed performance metrics to `metrics.txt` including:
 - **Error types:** Add new error classifications in the parsing service for specific failure cases.
 - **Metrics:** Extend metrics logging for new operations or performance measurements.
 - **Documentation:** Update this README and docstrings in code for any new features or changes.
+
+# Why you don't do compression with XLS/XLSX files
+
+XLS and XLSX files are already compressed formats (especially XLSX, which is a ZIP archive of XML files). Applying additional compression (like gzip) typically results in minimal size reduction—often less than 3%. This extra step adds processing overhead without significant storage or transfer benefits. In most cases, it's more efficient to transfer these files as-is.
+
+# Compression Metrics for XLSX Files
+
+| File Name              | Compressed Size (bytes) | Decompressed Size (bytes) | Compression Ratio | Bytes Saved |
+|------------------------|------------------------|---------------------------|-------------------|-------------|
+| valid_form_7.xlsx.gz   | 37,009                 | 37,973                    | 2.5%              | 964         |
+| valid_form_8.xlsx.gz   | 38,975                 | 40,021                    | 2.6%              | 1,046       |
+| valid_form_9.xlsx.gz   | 37,341                 | 38,420                    | 2.8%              | 1,079       |
+| valid_form_10.xlsx.gz  | 37,269                 | 38,208                    | 2.5%              | 939         |
+
+**Observation:**
+The compression ratios are very low (2.5%–2.8%), saving only about 939–1,079 bytes per file. This demonstrates that compressing XLSX files provides negligible space savings.
+
+To put this in perspective, this required refactoring half the codebase with over 5,000 changed lines of code.
 
 ## License
 MIT
