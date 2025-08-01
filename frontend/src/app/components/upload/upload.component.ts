@@ -212,6 +212,41 @@ import { FormPreviewService } from '../../services/form-preview.service';
                   <strong>Error Type:</strong> {{parsedResults[fileName].error_type}}
                 </div>
               </div>
+
+              <!-- Detailed Validation Errors (same format as validation endpoint) -->
+              <div *ngIf="parsedResults[fileName].errors && parsedResults[fileName].errors.length > 0" class="validation-details">
+                <div class="error-section">
+                  <h5 class="error-title">Errors ({{parsedResults[fileName].errors.length}}):</h5>
+                  <div class="validation-item error" *ngFor="let error of parsedResults[fileName].errors">
+                    <div class="validation-header">
+                      <span class="validation-type">{{getErrorTypeLabel(error.type)}}</span>
+                      <span class="validation-location">{{error.location}}</span>
+                      <span *ngIf="error.row" class="validation-position">Row {{error.row}}</span>
+                      <span *ngIf="error.column" class="validation-position">Column: {{error.column}}</span>
+                    </div>
+                    <div class="validation-message">{{error.message}}</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Detailed Validation Warnings -->
+              <div *ngIf="parsedResults[fileName].warnings && parsedResults[fileName].warnings.length > 0" class="validation-details">
+                <div class="warning-section">
+                  <h5 class="warning-title">
+                    <mat-icon class="warning-icon">warning</mat-icon>
+                    Warnings ({{parsedResults[fileName].warnings.length}}):
+                  </h5>
+                  <div class="validation-item warning" *ngFor="let warning of parsedResults[fileName].warnings">
+                    <div class="validation-header">
+                      <span class="validation-type">{{getWarningTypeLabel(warning.type)}}</span>
+                      <span class="validation-location">{{warning.location}}</span>
+                      <span *ngIf="warning.row" class="validation-position">Row {{warning.row}}</span>
+                      <span *ngIf="warning.column" class="validation-position">Column: {{warning.column}}</span>
+                    </div>
+                    <div class="validation-message">{{warning.message}}</div>
+                  </div>
+                </div>
+              </div>
               
               <!-- Error Suggestions -->
               <div *ngIf="parsedResults[fileName].errors && parsedResults[fileName].errors[0]?.suggestions?.length > 0" class="error-suggestions">
@@ -758,6 +793,86 @@ import { FormPreviewService } from '../../services/form-preview.service';
       display: flex;
       flex-direction: column;
       gap: 0.75rem;
+
+      .validation-details {
+        margin-top: 0.5rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.2);
+
+        .error-section, .warning-section {
+          margin-bottom: 0.5rem;
+
+          .error-title, .warning-title {
+            margin: 0 0 0.5rem 0;
+            font-size: 0.875rem;
+            font-weight: 600;
+          }
+
+          .error-title {
+            color: #F44336;
+          }
+
+          .warning-title {
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            margin: 0 0 0.5rem 0;
+            font-size: 0.875rem;
+            font-weight: 600;
+          }
+
+          .validation-item {
+            margin-bottom: 0.5rem;
+            padding: 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+
+            &.error {
+              background: rgba(244, 67, 54, 0.1);
+              border-left: 3px solid #F44336;
+              border: 1px solid rgba(244, 67, 54, 0.2);
+            }
+
+            &.warning {
+              background: rgba(255, 193, 7, 0.12);
+              border-left: 3px solid #FFC107;
+              border: 1px solid rgba(255, 193, 7, 0.25);
+            }
+
+            .validation-header {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 0.5rem;
+              margin-bottom: 0.25rem;
+
+              .validation-type {
+                background: rgba(255, 255, 255, 0.1);
+                padding: 0.1rem 0.375rem;
+                border-radius: 6px;
+                font-size: 0.7rem;
+                font-weight: 600;
+                text-transform: uppercase;
+                border: 1px solid rgba(255, 255, 255, 0.2);
+              }
+
+              .validation-location {
+                color: rgba(255, 255, 255, 0.8);
+                font-weight: 500;
+              }
+
+              .validation-position {
+                color: rgba(255, 255, 255, 0.6);
+                font-size: 0.7rem;
+              }
+            }
+
+            .validation-message {
+              color: rgba(255, 255, 255, 0.9);
+              line-height: 1.3;
+            }
+          }
+        }
+      }
     }
 
     .error-summary {
@@ -1661,7 +1776,11 @@ export class UploadComponent implements OnInit, OnChanges {
       'unsupported_question_type': 'Unsupported Question Type',
       'missing_reference': 'Missing Reference',
       'orphaned_reference': 'Orphaned Reference',
-      'file_error': 'File Error'
+      'file_error': 'File Error',
+      'invalid_file_format': 'Invalid File Format',
+      'password_protected': 'Password Protected',
+      'corrupted_file': 'Corrupted File',
+      'file_read_error': 'File Read Error'
     };
     return labels[type] || type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
   }
@@ -1821,6 +1940,28 @@ export class UploadComponent implements OnInit, OnChanges {
               errorMessage = errorDetail.message || errorDetail.error || 'Parsing failed';
               errorType = errorDetail.error_type || 'UNKNOWN_ERROR';
               suggestions = errorDetail.suggestions || [];
+              
+              // Extract validation errors and warnings if present
+              if (errorDetail.errors && Array.isArray(errorDetail.errors)) {
+                this.parsedResults[file.name] = {
+                  valid: false,
+                  message: errorMessage,
+                  error_type: errorType,
+                  errors: errorDetail.errors,
+                  warnings: errorDetail.warnings || [],
+                  file_name: errorDetail.file_name || file.name,
+                  timestamp: new Date().toISOString()
+                };
+                
+                parsed++;
+                this.parseProgress.current = parsed;
+                if (parsed === this.selectedFiles.length) {
+                  this.isParsing = false;
+                  this.selectedFiles = [];
+                  this.loadForms();
+                }
+                return; // Exit early since we've handled the structured validation errors
+              }
             } else if (typeof error.error === 'string') {
               errorMessage = error.error;
               // Try to extract error type from error message

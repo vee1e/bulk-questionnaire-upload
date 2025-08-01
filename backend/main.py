@@ -154,8 +154,33 @@ async def parse_file(file: UploadFile):
 
     try:
         parser = XLSFormParser()
-        parsed_schema = await parser.parse_file_only(file)
-        return parsed_schema
+        result = await parser.parse_file_only(file)
+        
+        # Check if validation failed
+        if isinstance(result, dict) and result.get('valid') == False:
+            # Return structured validation errors in the same format as validation endpoint
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "Validation failed",
+                    "message": result.get('message', 'File validation failed'),
+                    "error_type": "VALIDATION_ERROR",
+                    "file_name": result.get('file_name', file.filename),
+                    "errors": result.get('errors', []),
+                    "warnings": result.get('warnings', []),
+                    "suggestions": [
+                        "Fix the validation errors listed below",
+                        "Check that all required fields are filled in",
+                        "Verify data types are correct (numbers in numeric columns)",
+                        "Make sure there are no duplicate values where unique values are required"
+                    ]
+                }
+            )
+        
+        return result
+    except HTTPException:
+        # Re-raise HTTPExceptions (like validation errors) as-is
+        raise
     except Exception as e:
         error_message = str(e)
         logger.error(f"Error parsing file {file.filename}: {error_message}")
@@ -339,7 +364,23 @@ async def upload_files(files: List[UploadFile] = File(...)):
             return await parser.parse_file(file)
         except Exception as e:
             logger.error(f"Error processing file {file.filename}: {str(e)}")
-            return {"error": str(e), "filename": file.filename}
+            
+            # Check if this is a validation error with structured data
+            if hasattr(e, 'validation_errors') and hasattr(e, 'validation_warnings'):
+                return {
+                    "error": "Validation failed",
+                    "message": str(e),
+                    "error_type": "VALIDATION_ERROR",
+                    "filename": file.filename,
+                    "errors": e.validation_errors,
+                    "warnings": e.validation_warnings
+                }
+            else:
+                return {
+                    "error": str(e), 
+                    "filename": file.filename,
+                    "error_type": "PROCESSING_ERROR"
+                }
 
     batch_start = time.time()
     results = await asyncio.gather(*(process_file(file) for file in files))
