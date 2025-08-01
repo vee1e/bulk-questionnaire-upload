@@ -536,8 +536,48 @@ class XLSFormParser:
             questions_df = df_dict['Questions Info']
             options_df = df_dict['Answer Options']
 
+            # Run comprehensive validation checks before parsing/saving
+            all_errors = []
+            all_warnings = []
+
+            # Validate Forms content
+            forms_errors, forms_warnings, form_metadata = self._validate_forms_content(forms_df)
+            all_errors.extend(forms_errors)
+            all_warnings.extend(forms_warnings)
+
+            # Validate Questions content
+            questions_errors, questions_warnings = self._validate_questions_content(questions_df)
+            all_errors.extend(questions_errors)
+            all_warnings.extend(questions_warnings)
+
+            # Validate Options content
+            options_errors, options_warnings = self._validate_options_content(options_df)
+            all_errors.extend(options_errors)
+            all_warnings.extend(options_warnings)
+
+            # Validate cross-references
+            cross_errors = self._validate_cross_references(questions_df, options_df)
+            all_errors.extend(cross_errors)
+
+            # Fail if validation errors exist
+            if all_errors:
+                error_messages = []
+                for error in all_errors:
+                    location = f"{error['location']}"
+                    if error.get('row'):
+                        location += f" (row {error['row']})"
+                    if error.get('column'):
+                        location += f" (column {error['column']})"
+                    error_messages.append(f"{error['message']} - {location}")
+                
+                # Create a detailed exception with structured error info
+                exception_message = f"Validation failed with {len(all_errors)} error(s): " + "; ".join(error_messages)
+                error = Exception(exception_message)
+                error.validation_errors = all_errors
+                error.validation_warnings = all_warnings
+                raise error
+
             start_form = time.time()
-            form_metadata = self._parse_form_metadata(forms_df)
             form_id = await self.db_service.save_form(form_metadata)
             form_time = time.time() - start_form
             log_metric('form_process_time', form_time)
@@ -581,7 +621,8 @@ class XLSFormParser:
                     'form_process_time': form_time,
                     'questions_process_time': questions_time,
                     'options_process_time': options_time,
-                    'total_form_upload_time': total_time
+                    'total_form_upload_time': total_time,
+                    'validation_warnings': all_warnings
                 }
             )
 
@@ -600,78 +641,202 @@ class XLSFormParser:
                 df_dict = pd.read_excel(file.file, sheet_name=None)
                 logger.info(f"Successfully loaded Excel file with sheets: {list(df_dict.keys())}")
             except Exception as e:
-                raise Exception(f"Failed to read Excel file: {str(e)}. The file may be corrupted, password-protected, or not a valid Excel file.")
+                error_message = str(e)
+                if "Excel file format cannot be determined" in error_message:
+                    return {
+                        'valid': False,
+                        'message': f"Validation failed with 1 error(s) and 0 warning(s).",
+                        'errors': [{
+                            'type': 'invalid_file_format',
+                            'message': 'File is not a valid Excel file. The file may be a CSV file with .xlsx extension or corrupted.',
+                            'location': 'File structure',
+                            'row': None,
+                            'column': None
+                        }],
+                        'warnings': [],
+                        'file_name': file.filename
+                    }
+                elif "password-protected" in error_message.lower():
+                    return {
+                        'valid': False,
+                        'message': f"Validation failed with 1 error(s) and 0 warning(s).",
+                        'errors': [{
+                            'type': 'password_protected',
+                            'message': 'Excel file is password-protected and cannot be read.',
+                            'location': 'File structure',
+                            'row': None,
+                            'column': None
+                        }],
+                        'warnings': [],
+                        'file_name': file.filename
+                    }
+                elif "corrupted" in error_message.lower():
+                    return {
+                        'valid': False,
+                        'message': f"Validation failed with 1 error(s) and 0 warning(s).",
+                        'errors': [{
+                            'type': 'corrupted_file',
+                            'message': 'Excel file appears to be corrupted and cannot be read.',
+                            'location': 'File structure',
+                            'row': None,
+                            'column': None
+                        }],
+                        'warnings': [],
+                        'file_name': file.filename
+                    }
+                else:
+                    return {
+                        'valid': False,
+                        'message': f"Validation failed with 1 error(s) and 0 warning(s).",
+                        'errors': [{
+                            'type': 'file_read_error',
+                            'message': f'Failed to read Excel file: {error_message}. The file may be corrupted, password-protected, or not a valid Excel file.',
+                            'location': 'File structure',
+                            'row': None,
+                            'column': None
+                        }],
+                        'warnings': [],
+                        'file_name': file.filename
+                    }
 
-            # Step 2: Validate required sheets exist
-            required_sheets = self.REQUIRED_SHEETS
-            available_sheets = list(df_dict.keys())
-            missing_sheets = [sheet for sheet in required_sheets if sheet not in available_sheets]
-            
-            if missing_sheets:
-                raise Exception(f"Missing required sheets: {missing_sheets}. Found sheets: {available_sheets}. Required sheets are: {required_sheets}")
+            # Step 2: Run comprehensive validation (same as validate_file method)
+            all_errors = []
+            all_warnings = []
+            form_metadata = {}
+            questions_count = 0
+            options_count = 0
 
-            # Step 3: Extract sheet data with validation
+            # Validate sheet structure and columns
+            forms_validation = self._validate_sheet(df_dict, 'Forms', self.REQUIRED_FORMS_COLUMNS)
+            if not forms_validation['exists']:
+                all_errors.append({
+                    'type': 'missing_sheet',
+                    'message': 'Required sheet "Forms" is missing',
+                    'location': 'File structure',
+                    'row': None,
+                    'column': None
+                })
+            elif forms_validation['missing_columns']:
+                for col in forms_validation['missing_columns']:
+                    all_errors.append({
+                        'type': 'missing_column',
+                        'message': f'Required column "{col}" is missing',
+                        'location': 'Forms sheet',
+                        'row': None,
+                        'column': col
+                    })
+
+            questions_validation = self._validate_sheet(df_dict, 'Questions Info', self.REQUIRED_QUESTIONS_COLUMNS)
+            if not questions_validation['exists']:
+                all_errors.append({
+                    'type': 'missing_sheet',
+                    'message': 'Required sheet "Questions Info" is missing',
+                    'location': 'File structure',
+                    'row': None,
+                    'column': None
+                })
+            elif questions_validation['missing_columns']:
+                for col in questions_validation['missing_columns']:
+                    all_errors.append({
+                        'type': 'missing_column',
+                        'message': f'Required column "{col}" is missing',
+                        'location': 'Questions Info sheet',
+                        'row': None,
+                        'column': col
+                    })
+
+            options_validation = self._validate_sheet(df_dict, 'Answer Options', self.REQUIRED_OPTIONS_COLUMNS)
+            if not options_validation['exists']:
+                all_errors.append({
+                    'type': 'missing_sheet',
+                    'message': 'Required sheet "Answer Options" is missing',
+                    'location': 'File structure',
+                    'row': None,
+                    'column': None
+                })
+            elif options_validation['missing_columns']:
+                for col in options_validation['missing_columns']:
+                    all_errors.append({
+                        'type': 'missing_column',
+                        'message': f'Required column "{col}" is missing',
+                        'location': 'Answer Options sheet',
+                        'row': None,
+                        'column': col
+                    })
+
+            # Step 3: Extract sheet data and validate content
+            if forms_validation['exists'] and not forms_validation['missing_columns']:
+                forms_df = df_dict['Forms']
+                if not forms_df.empty:
+                    forms_errors, forms_warnings, form_metadata = self._validate_forms_content(forms_df)
+                    all_errors.extend(forms_errors)
+                    all_warnings.extend(forms_warnings)
+                else:
+                    all_errors.append({
+                        'type': 'missing_data',
+                        'message': 'Forms sheet is empty',
+                        'location': 'Forms sheet',
+                        'row': None,
+                        'column': None
+                    })
+
+            if questions_validation['exists'] and not questions_validation['missing_columns']:
+                questions_df = df_dict['Questions Info']
+                if not questions_df.empty:
+                    questions_count = len(questions_df)
+                    questions_errors, questions_warnings = self._validate_questions_content(questions_df)
+                    all_errors.extend(questions_errors)
+                    all_warnings.extend(questions_warnings)
+                else:
+                    all_errors.append({
+                        'type': 'missing_data',
+                        'message': 'Questions Info sheet is empty',
+                        'location': 'Questions Info sheet',
+                        'row': None,
+                        'column': None
+                    })
+
+            if options_validation['exists'] and not options_validation['missing_columns']:
+                options_df = df_dict['Answer Options']
+                if not options_df.empty:
+                    options_count = len(options_df)
+                    options_errors, options_warnings = self._validate_options_content(options_df)
+                    all_errors.extend(options_errors)
+                    all_warnings.extend(options_warnings)
+                else:
+                    all_warnings.append({
+                        'type': 'missing_data',
+                        'message': 'Answer Options sheet is empty - no multiple choice questions available',
+                        'location': 'Answer Options sheet',
+                        'row': None,
+                        'column': None
+                    })
+
+            # Step 4: Validate cross-references if both sheets exist and have data
+            if (questions_validation['exists'] and options_validation['exists'] and
+                not questions_validation['missing_columns'] and not options_validation['missing_columns']):
+                questions_df = df_dict['Questions Info']
+                options_df = df_dict['Answer Options']
+                if not questions_df.empty and not options_df.empty:
+                    cross_errors = self._validate_cross_references(questions_df, options_df)
+                    all_errors.extend(cross_errors)
+
+            # Step 5: Check if validation passed - return validation errors instead of parsing
+            if all_errors:
+                return {
+                    'valid': False,
+                    'message': f"Validation failed with {len(all_errors)} error(s) and {len(all_warnings)} warning(s).",
+                    'errors': all_errors,
+                    'warnings': all_warnings,
+                    'file_name': file.filename
+                }
+
+            # Step 6: Parse data only if validation passes
             try:
                 forms_df = df_dict['Forms']
-                if forms_df.empty:
-                    raise Exception("The 'Forms' sheet is empty. Please add form metadata with required columns: Language, Title")
-                logger.info(f"Forms sheet loaded with {len(forms_df)} rows")
-            except KeyError:
-                raise Exception("Sheet 'Forms' not found. Please ensure the sheet name is exactly 'Forms' (case-sensitive)")
-            except Exception as e:
-                raise Exception(f"Error loading 'Forms' sheet: {str(e)}")
-
-            try:
                 questions_df = df_dict['Questions Info']
-                if questions_df.empty:
-                    raise Exception("The 'Questions Info' sheet is empty. Please add questions with required columns: Order, Title, View Sequence, Input Type")
-                logger.info(f"Questions Info sheet loaded with {len(questions_df)} rows")
-            except KeyError:
-                raise Exception("Sheet 'Questions Info' not found. Please ensure the sheet name is exactly 'Questions Info' (case-sensitive)")
-            except Exception as e:
-                raise Exception(f"Error loading 'Questions Info' sheet: {str(e)}")
-
-            try:
                 options_df = df_dict['Answer Options']
-                if options_df.empty:
-                    raise Exception("The 'Answer Options' sheet is empty. Please add answer options with required columns: Order, Id, Label")
-                logger.info(f"Answer Options sheet loaded with {len(options_df)} rows")
-            except KeyError:
-                raise Exception("Sheet 'Answer Options' not found. Please ensure the sheet name is exactly 'Answer Options' (case-sensitive)")
-            except Exception as e:
-                raise Exception(f"Error loading 'Answer Options' sheet: {str(e)}")
-
-            # Step 4: Validate column headers
-            try:
-                missing_form_cols = [col for col in self.REQUIRED_FORMS_COLUMNS if col not in forms_df.columns]
-                if missing_form_cols:
-                    raise Exception(f"Forms sheet missing required columns: {missing_form_cols}. Available columns: {list(forms_df.columns)}. Required columns: {self.REQUIRED_FORMS_COLUMNS}")
-            except Exception as e:
-                raise Exception(f"Forms sheet column validation failed: {str(e)}")
-
-            try:
-                missing_question_cols = [col for col in self.REQUIRED_QUESTIONS_COLUMNS if col not in questions_df.columns]
-                if missing_question_cols:
-                    raise Exception(f"Questions Info sheet missing required columns: {missing_question_cols}. Available columns: {list(questions_df.columns)}. Required columns: {self.REQUIRED_QUESTIONS_COLUMNS}")
-            except Exception as e:
-                raise Exception(f"Questions Info sheet column validation failed: {str(e)}")
-
-            try:
-                missing_option_cols = [col for col in self.REQUIRED_OPTIONS_COLUMNS if col not in options_df.columns]
-                if missing_option_cols:
-                    raise Exception(f"Answer Options sheet missing required columns: {missing_option_cols}. Available columns: {list(options_df.columns)}. Required columns: {self.REQUIRED_OPTIONS_COLUMNS}")
-            except Exception as e:
-                raise Exception(f"Answer Options sheet column validation failed: {str(e)}")
-
-            # Step 5: Parse form metadata with detailed error handling
-            try:
-                form_metadata = self._parse_form_metadata(forms_df)
-                logger.info(f"Parsed form metadata: {form_metadata}")
-            except Exception as e:
-                raise Exception(f"Failed to parse form metadata from 'Forms' sheet: {str(e)}. Check that Language and Title columns have valid data.")
-            
-            # Step 6: Parse questions data with detailed error handling
-            try:
+                
                 questions_data = self._parse_questions_data(questions_df)
                 logger.info(f"Parsed {len(questions_data)} questions")
                 if not questions_data:
@@ -679,7 +844,6 @@ class XLSFormParser:
             except Exception as e:
                 raise Exception(f"Failed to parse questions from 'Questions Info' sheet: {str(e)}. Check data types: Order and View Sequence should be integers, Input Type should be a valid type (1-10).")
 
-            # Step 7: Parse options data with detailed error handling
             try:
                 options_data = self._parse_options_data(options_df)
                 logger.info(f"Parsed {len(options_data)} options")
@@ -688,7 +852,7 @@ class XLSFormParser:
             except Exception as e:
                 raise Exception(f"Failed to parse options from 'Answer Options' sheet: {str(e)}. Check data types: Order and Id should be integers, Label should be text.")
 
-            # Step 8: Build structured form schema
+            # Step 7: Build structured form schema
             try:
                 form_title = self._get_form_title(forms_df)
                 form_version = '1.0.0'
@@ -700,7 +864,8 @@ class XLSFormParser:
             total_time = time.time() - start_all
             log_metric('parse_only_time', total_time)
 
-            # Step 9: Construct response
+            # Step 8: Construct response
+            available_sheets = list(df_dict.keys())
             return {
                 'id': None,  # No ID since not saved
                 'title': form_title,
@@ -714,7 +879,8 @@ class XLSFormParser:
                     'parse_time': total_time,
                     'created_at': form_metadata.get('created_at'),
                     'sheets_found': available_sheets,
-                    'file_name': file.filename
+                    'file_name': file.filename,
+                    'validation_warnings': all_warnings
                 },
                 'raw_data': {
                     'form_metadata': form_metadata,
