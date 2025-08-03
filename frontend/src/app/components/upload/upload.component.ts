@@ -643,6 +643,15 @@ import { FormPreviewService } from '../../services/form-preview.service';
         display: flex;
         gap: 1rem;
         justify-content: center;
+
+        button[disabled] {
+          opacity: 0.5;
+          cursor: not-allowed !important;
+          
+          &:hover {
+            cursor: not-allowed !important;
+          }
+        }
       }
     }
 
