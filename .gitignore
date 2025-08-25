@@ -19,7 +19,6 @@ dist/
 .env/
 
 # personal
-tests/
 project-plans/
 .DS_Store
 .cursorrules

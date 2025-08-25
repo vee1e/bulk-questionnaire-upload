@@ -871,7 +871,7 @@ class XLSFormParser:
                 'title': form_title,
                 'version': form_version,
                 'language': form_metadata.get('language', 'en'),
-                'groups': [group.dict() for group in groups],
+                'groups': [group.model_dump() for group in groups],
                 'settings': None,
                 'metadata': {
                     'questions_count': len(questions_data),

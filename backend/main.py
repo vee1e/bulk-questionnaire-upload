@@ -1,4 +1,5 @@
 from fastapi import FastAPI, UploadFile, HTTPException, File, Depends
+from starlette.datastructures import UploadFile as StarletteUploadFile
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from services.xlsform_parser import XLSFormParser
@@ -11,6 +12,7 @@ from typing import List
 import time
 import os
 from fastapi.responses import JSONResponse
+from fastapi import Request
 import pandas as pd
 
 logging.basicConfig(level=logging.INFO)
@@ -51,7 +53,7 @@ async def shutdown_event():
     await close_mongo_connection()
 
 @app.post("/api/validate", response_model=FormValidation)
-async def validate_file(file: UploadFile):
+async def validate_file(file: UploadFile = File(...)):
     """
     Validate the uploaded Excel file format
     """
@@ -74,12 +76,20 @@ async def validate_file(file: UploadFile):
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/api/forms/parse")
-async def parse_file(file: UploadFile):
+async def parse_file(request: Request):
     """
     Parse the uploaded Excel file and return JSON schema without saving to database
     """
-    # Enhanced file validation
-    if not file.filename:
+    form = await request.form()
+    file_field = form.get('file')
+    filename = None
+    upload: UploadFile | None = None
+    if isinstance(file_field, (UploadFile, StarletteUploadFile)):
+        upload = file_field
+        filename = file_field.filename
+    elif isinstance(file_field, str):
+        filename = file_field
+    if not filename:
         raise HTTPException(
             status_code=400,
             detail={
@@ -93,13 +103,13 @@ async def parse_file(file: UploadFile):
             }
         )
     
-    if not file.filename.endswith(('.xls', '.xlsx')):
-        file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'unknown'
+    if not filename.endswith(('.xls', '.xlsx')):
+        file_extension = filename.split('.')[-1] if '.' in filename else 'unknown'
         raise HTTPException(
             status_code=400,
             detail={
                 "error": "Invalid file format",
-                "message": f"File '{file.filename}' has extension '.{file_extension}' but only Excel files (.xls, .xlsx) are supported.",
+                "message": f"File '{filename}' has extension '.{file_extension}' but only Excel files (.xls, .xlsx) are supported.",
                 "error_type": "INVALID_FILE_FORMAT",
                 "received_format": file_extension,
                 "supported_formats": ["xls", "xlsx"],
@@ -113,15 +123,24 @@ async def parse_file(file: UploadFile):
 
     # Enhanced file size validation
     try:
-        file_size = len(await file.read())
-        await file.seek(0)  # Reset file pointer
+        if not upload:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "Missing file",
+                    "message": "No file content was uploaded.",
+                    "error_type": "MISSING_FILE"
+                }
+            )
+        file_size = len(await upload.read())
+        await upload.seek(0)
         
         if file_size == 0:
             raise HTTPException(
                 status_code=400,
                 detail={
                     "error": "Empty file",
-                    "message": f"The uploaded file '{file.filename}' is empty (0 bytes).",
+                    "message": f"The uploaded file '{filename}' is empty (0 bytes).",
                     "error_type": "EMPTY_FILE",
                     "file_size": file_size,
                     "suggestions": [
@@ -134,7 +153,7 @@ async def parse_file(file: UploadFile):
         
         # Warn about large files (>10MB)
         if file_size > 10 * 1024 * 1024:
-            logger.warning(f"Large file uploaded: {file.filename} ({file_size} bytes)")
+            logger.warning(f"Large file uploaded: {filename} ({file_size} bytes)")
             
     except Exception as e:
         logger.error(f"Error reading file size: {str(e)}")
@@ -142,7 +161,7 @@ async def parse_file(file: UploadFile):
             status_code=400,
             detail={
                 "error": "File access error",
-                "message": f"Unable to read the uploaded file '{file.filename}'. The file may be corrupted or inaccessible.",
+                "message": f"Unable to read the uploaded file '{filename}'. The file may be corrupted or inaccessible.",
                 "error_type": "FILE_ACCESS_ERROR",
                 "suggestions": [
                     "Try uploading the file again",
@@ -154,7 +173,7 @@ async def parse_file(file: UploadFile):
 
     try:
         parser = XLSFormParser()
-        result = await parser.parse_file_only(file)
+        result = await parser.parse_file_only(upload)
         
         # Check if validation failed
         if isinstance(result, dict) and result.get('valid') == False:
@@ -165,7 +184,7 @@ async def parse_file(file: UploadFile):
                     "error": "Validation failed",
                     "message": result.get('message', 'File validation failed'),
                     "error_type": "VALIDATION_ERROR",
-                    "file_name": result.get('file_name', file.filename),
+                    "file_name": result.get('file_name', filename),
                     "errors": result.get('errors', []),
                     "warnings": result.get('warnings', []),
                     "suggestions": [
@@ -183,14 +202,14 @@ async def parse_file(file: UploadFile):
         raise
     except Exception as e:
         error_message = str(e)
-        logger.error(f"Error parsing file {file.filename}: {error_message}")
+        logger.error(f"Error parsing file {filename}: {error_message}")
         
         # Provide more specific error details based on the exception
         error_detail = {
             "error": "Parsing failed",
-            "message": f"Failed to parse Excel file '{file.filename}': {error_message}",
+            "message": f"Failed to parse Excel file '{filename}': {error_message}",
             "error_type": "PARSING_ERROR",
-            "file_name": file.filename,
+            "file_name": filename,
             "raw_error": error_message,
             "suggestions": [
                 "Check that the Excel file has the required sheets: 'Forms', 'Questions Info', 'Answer Options'",
