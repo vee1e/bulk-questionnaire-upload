@@ -1,0 +1,39 @@
+name: Sync READMEs to Wiki
+'on':
+  push:
+    branches:
+      - main
+    paths:
+      - README.md
+      - backend/README.md
+      - frontend/README.md
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Checkout wiki
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}.wiki
+          path: wiki
+      - name: Prepare wiki content
+        run: |
+          rm -rf wiki/*
+          if [ -f README.md ]; then cp README.md wiki/Home.md; fi
+          if [ -f backend/README.md ]; then cp backend/README.md wiki/Backend.md; fi
+          if [ -f frontend/README.md ]; then cp frontend/README.md wiki/Frontend.md; fi
+      - name: Commit and push
+        run: |
+          cd wiki
+          if [ -n "$(git status --porcelain)" ]; then
+            git config user.name github-actions
+            git config user.email github-actions@github.com
+            git add .
+            git commit -m "Sync README to Wiki"
+            git push
+          fi
