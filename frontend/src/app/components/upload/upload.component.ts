@@ -36,10 +36,10 @@ import { FormPreviewService } from '../../services/form-preview.service';
            *ngIf="isValidating">
         Validating {{validationProgress.current}}/{{validationProgress.total}}...
       </div>
-      <div class="progress-counter" 
-           [ngClass]="{'counter-orange': isValidating || isUploading, 'counter-purple': isParsing, 'counter-red': isDeletingAll}" 
+      <div class="progress-counter"
+           [ngClass]="{'counter-orange': isValidating || isUploading, 'counter-purple': isParsing, 'counter-red': isDeletingAll}"
            *ngIf="isUploading">
-        Processing {{uploadProgress.current}}/{{uploadProgress.total}}...
+        Processing {{uploadProgress.total}} form(s) concurrently...
       </div>
       <div class="progress-counter" 
            [ngClass]="{'counter-orange': isValidating || isUploading, 'counter-purple': isParsing, 'counter-red': isDeletingAll}" 
@@ -284,7 +284,7 @@ import { FormPreviewService } from '../../services/form-preview.service';
               <mat-spinner *ngIf="loadingFormId === form.id" diameter="24" class="loading-spinner"></mat-spinner>
               <div class="form-details">
                 <h4 class="form-title" [title]="form.title">{{form.title}}</h4>
-                <p>{{form.language}} • {{form.version}} • {{form.created_at | date:'short'}} </p>
+                <p>{{form.language || 'en'}} • {{form.version || '1.0.0'}} • {{(form.created_at ? (form.created_at | date:'short') : 'Unknown')}}</p>
               </div>
             </div>
 
@@ -1037,7 +1037,7 @@ import { FormPreviewService } from '../../services/form-preview.service';
       }
 
       .form-title {
-        max-width: 300px;
+        max-width: 1200px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -1221,7 +1221,7 @@ import { FormPreviewService } from '../../services/form-preview.service';
       }
       
       .form-title {
-        max-width: 200px;
+        max-width: 320px;
       }
 
       .file-name {
@@ -1235,7 +1235,7 @@ import { FormPreviewService } from '../../services/form-preview.service';
       }
       
       .form-title {
-        max-width: 150px;
+        max-width: 220px;
       }
 
       .file-name {
@@ -1440,7 +1440,7 @@ import { FormPreviewService } from '../../services/form-preview.service';
       margin: 0;
       padding: 1rem;
       color: #ffffff;
-      font-family: 'Courier New', monospace;
+      font-family: 'Inter', sans-serif;
       font-size: 0.8rem;
       line-height: 1.4;
       white-space: pre-wrap;
@@ -1630,32 +1630,37 @@ export class UploadComponent implements OnInit, OnChanges {
     if (this.selectedFiles.length === 0 || !this.allValid) return;
     this.isUploading = true;
     this.uploadProgress = { current: 0, total: this.selectedFiles.length };
-    let uploaded = 0;
-    // Simulate per-file upload progress if possible
-    const uploadNext = (index: number) => {
-      if (index >= this.selectedFiles.length) {
-        this.isUploading = false;
-        this.selectedFiles = [];
-        this.validationResults = {};
-        this.allValid = false;
-        this.loadForms();
-        return;
-      }
-      this.formService.uploadFiles([this.selectedFiles[index]]).subscribe({
-        next: () => {
-          uploaded++;
-          this.uploadProgress.current = uploaded;
-          uploadNext(index + 1);
-        },
-        error: (error: any) => {
-          uploaded++;
-          this.uploadProgress.current = uploaded;
-          console.error('Upload failed:', error);
-          uploadNext(index + 1);
+
+    // Send all files at once for concurrent processing
+    this.formService.uploadFiles(this.selectedFiles).subscribe({
+      next: (results: any[]) => {
+        this.uploadProgress.current = this.selectedFiles.length;
+
+        // Show results for each file
+        const successful = results.filter(r => !r.error).length;
+        const failed = results.filter(r => r.error).length;
+
+        if (failed === 0) {
+          this.snackBar.open(`✅ Successfully processed ${successful} form(s)!`, 'Close', { duration: 5000 });
+        } else {
+          this.snackBar.open(`⚠️ Processed ${successful} form(s), ${failed} failed. Check console for details.`, 'Close', { duration: 7000 });
         }
-      });
-    };
-    uploadNext(0);
+
+        // Wait a moment for database operations to complete, then refresh the forms list
+        setTimeout(() => {
+          this.isUploading = false;
+          this.selectedFiles = [];
+          this.validationResults = {};
+          this.allValid = false;
+          this.loadForms();
+        }, 1000); // 1 second delay to ensure database operations complete
+      },
+      error: (error: any) => {
+        this.isUploading = false;
+        console.error('Upload failed:', error);
+        this.snackBar.open(`❌ Upload failed: ${error.error?.message || error.message || 'Unknown error'}`, 'Close', { duration: 5000 });
+      }
+    });
   }
 
   private resetUploadState(): void {
@@ -1665,13 +1670,16 @@ export class UploadComponent implements OnInit, OnChanges {
   }
 
   loadForms(): void {
+    console.log('Loading forms from database...');
     this.formService.getAllForms().subscribe({
       next: (response) => {
+        console.log(`Loaded ${response.forms.length} forms from database`);
         this.parsedForms = response.forms;
         this.applySearch();
       },
       error: (error: any) => {
         console.error('Failed to load forms:', error);
+        this.snackBar.open('❌ Failed to refresh forms list', 'Close', { duration: 3000 });
       }
     });
   }

@@ -61,6 +61,13 @@ class DatabaseService:
         try:
             form = await forms_collection.find_one({"_id": ObjectId(form_id)})
             if form:
+                if 'version' not in form or form['version'] in (None, ''):
+                    form['version'] = '1.0.0'
+                if 'created_at' not in form or form['created_at'] in (None, ''):
+                    try:
+                        form['created_at'] = form['_id'].generation_time.isoformat()
+                    except Exception:
+                        pass
                 form['id'] = str(form['_id'])
                 del form['_id']
             return form
@@ -97,6 +104,13 @@ class DatabaseService:
         try:
             forms = await forms_collection.find().sort("created_at", -1).to_list(length=10000)
             for form in forms:
+                if 'version' not in form or form['version'] in (None, ''):
+                    form['version'] = '1.0.0'
+                if 'created_at' not in form or form['created_at'] in (None, ''):
+                    try:
+                        form['created_at'] = form['_id'].generation_time.isoformat()
+                    except Exception:
+                        pass
                 form['id'] = str(form['_id'])
                 del form['_id']
             return forms

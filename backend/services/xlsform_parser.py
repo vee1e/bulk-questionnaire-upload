@@ -578,7 +578,8 @@ class XLSFormParser:
                 raise error
 
             start_form = time.time()
-            form_id = await self.db_service.save_form(form_metadata)
+            parsed_metadata = self._parse_form_metadata(forms_df)
+            form_id = await self.db_service.save_form(parsed_metadata)
             form_time = time.time() - start_form
             log_metric('form_process_time', form_time)
 
@@ -601,7 +602,7 @@ class XLSFormParser:
                 log_metric('avg_one_option_process_time', avg_option_time)
 
             form_title = self._get_form_title(forms_df)
-            form_version = '1.0.0'
+            form_version = parsed_metadata.get('version', '1.0.0')
             groups = self._parse_questions(questions_df, options_df)
 
             total_time = time.time() - start_all
@@ -905,10 +906,18 @@ class XLSFormParser:
         }
 
         if not forms_df.empty:
-            if 'Language' in forms_df.columns:
-                metadata['language'] = forms_df.iloc[0]['Language']
-            if 'Title' in forms_df.columns:
-                metadata['title'] = forms_df.iloc[0]['Title']
+            first = forms_df.iloc[0]
+            if 'Language' in forms_df.columns and pd.notna(first['Language']):
+                metadata['language'] = str(first['Language']).strip()
+            if 'Title' in forms_df.columns and pd.notna(first['Title']):
+                metadata['title'] = str(first['Title']).strip()
+            if 'Version' in forms_df.columns and pd.notna(first['Version']):
+                metadata['version'] = str(first['Version']).strip()
+            if 'Created At' in forms_df.columns and pd.notna(first['Created At']):
+                try:
+                    metadata['created_at'] = pd.to_datetime(first['Created At']).isoformat()
+                except Exception:
+                    pass
 
         return metadata
 

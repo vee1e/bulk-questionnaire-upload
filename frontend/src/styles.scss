@@ -5,10 +5,15 @@
 html, body {
   height: 100%;
   margin: 0;
-  font-family: 'Roboto', sans-serif;
+  font-family: 'Inter', sans-serif !important;
   background: #000000;
   color: #ffffff;
   overflow: hidden;
+}
+
+/* Force Inter for all text elements */
+body, p, span, div, h1, h2, h3, h4, h5, h6, input, textarea, button, select, option {
+  font-family: 'Inter', sans-serif !important;
 }
 
 body {
