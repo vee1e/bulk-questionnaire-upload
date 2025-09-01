@@ -523,6 +523,27 @@ tail -f logs/app.log
 5. Add tests for new functionality
 6. Use meaningful commit messages
 
+# Why you don't do compression with XLS/XLSX files
+
+XLS and XLSX files are already compressed formats (especially XLSX, which is a ZIP archive of XML files). Applying additional co
+pression (like gzip) typically results in minimal size reduction—often less than 3%. This extra step adds processing overhead wi
+hout significant storage or transfer benefits. In most cases, it's more efficient to transfer these files as-is.
+
+## Compression Metrics for XLSX Files
+
+| File Name               | Compressed Size (bytes) | Decompressed Size (bytes)  | Compression Ratio | Bytes Saved |
+|-------------------------|-------------------------|----------------------------|-------------------|-------------|
+| `valid_form_07.xlsx.gz` | 37,009                  | 37,973                     | 2.5%              | 964         |
+| `valid_form_08.xlsx.gz` | 38,975                  | 40,021                     | 2.6%              | 1,046       |
+| `valid_form_09.xlsx.gz` | 37,341                  | 38,420                     | 2.8%              | 1,079       |
+| `valid_form_10.xlsx.gz` | 37,269                  | 38,208                     | 2.5%              | 939         |
+
+**Observation:**
+The compression ratios are very low (2.5%–2.8%), saving only about 939–1,079 bytes per file. This demonstrates that compressing
+LSX files provides negligible space savings.
+
+To put this in perspective, this required refactoring half the codebase with over 5,000 changed lines of code.
+
 ## License
 
 MIT License - see LICENSE file for details.
