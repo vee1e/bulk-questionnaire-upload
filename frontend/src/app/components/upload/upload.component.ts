@@ -39,7 +39,7 @@ import { FormPreviewService } from '../../services/form-preview.service';
       <div class="progress-counter"
            [ngClass]="{'counter-orange': isValidating || isUploading, 'counter-purple': isParsing, 'counter-red': isDeletingAll}"
            *ngIf="isUploading">
-        Processing {{uploadProgress.total}} form(s) concurrently...
+        {{uploadPaused ? 'Paused' : 'Processing'}} {{uploadProgress.current}}/{{uploadProgress.total}} form(s)...
       </div>
       <div class="progress-counter" 
            [ngClass]="{'counter-orange': isValidating || isUploading, 'counter-purple': isParsing, 'counter-red': isDeletingAll}" 
@@ -102,16 +102,36 @@ import { FormPreviewService } from '../../services/form-preview.service';
               <mat-icon>upload</mat-icon>
               {{isUploading ? 'Uploading...' : 'Upload'}}
             </button>
+            <button *ngIf="isUploading && !uploadPaused" mat-icon-button color="warn" (click)="pauseUpload()" matTooltip="Pause Upload">
+              <mat-icon>pause</mat-icon>
+            </button>
+            <button *ngIf="uploadPaused" mat-icon-button color="accent" (click)="resumeUpload()" matTooltip="Resume Upload">
+              <mat-icon>play_arrow</mat-icon>
+            </button>
+            <button *ngIf="isUploading || uploadPaused" mat-icon-button color="warn" (click)="cancelUpload()" matTooltip="Cancel Upload">
+              <mat-icon>stop</mat-icon>
+            </button>
           </div>
-          <div class="selected-file" *ngFor="let file of selectedFiles">
+          <div class="selected-file" *ngFor="let file of selectedFiles; let i = index">
             <div class="file-info">
               <mat-icon>description</mat-icon>
               <span class="file-name" [title]="file.name">{{file.name}}</span>
-              <span *ngIf="validationResults[file.name]"
-                    [ngClass]="{'valid': validationResults[file.name].valid, 'invalid': !validationResults[file.name].valid}"
-                    class="validation-status">
-                {{validationResults[file.name].message}}
-              </span>
+              <div class="status-container">
+                <span *ngIf="isUploading || uploadPaused" class="upload-status"
+                      [ngClass]="{
+                        'processing': i === currentUploadIndex && !uploadPaused,
+                        'completed': processedFiles.includes(file.name),
+                        'pending': i > currentUploadIndex,
+                        'paused': i === currentUploadIndex && uploadPaused
+                      }">
+                  {{getFileUploadStatus(file.name, i)}}
+                </span>
+                <span *ngIf="validationResults[file.name]"
+                      [ngClass]="{'valid': validationResults[file.name].valid, 'invalid': !validationResults[file.name].valid}"
+                      class="validation-status">
+                  {{validationResults[file.name].message}}
+                </span>
+              </div>
             </div>
 
             <!-- Detailed Error Messages -->
@@ -532,12 +552,18 @@ import { FormPreviewService } from '../../services/form-preview.service';
             cursor: help;
           }
 
+          .status-container {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-left: auto;
+          }
+
           .validation-status {
             padding: 0.25rem 0.5rem;
             border-radius: 8px;
             font-size: 0.8rem;
             font-weight: bold;
-            margin-left: auto;
             white-space: nowrap;
             display: flex;
             align-items: center;
@@ -553,6 +579,40 @@ import { FormPreviewService } from '../../services/form-preview.service';
             color: #ff0000;
             background: #1c0000;
             border: 1px solid #660000;
+          }
+
+          .upload-status {
+            padding: 0.25rem 0.5rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+          }
+
+          .upload-status.processing {
+            color: #2196F3;
+            background: rgba(33, 150, 243, 0.1);
+            border: 1px solid rgba(33, 150, 243, 0.3);
+          }
+
+          .upload-status.completed {
+            color: #4CAF50;
+            background: rgba(76, 175, 80, 0.1);
+            border: 1px solid rgba(76, 175, 80, 0.3);
+          }
+
+          .upload-status.pending {
+            color: #FFC107;
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+          }
+
+          .upload-status.paused {
+            color: #FF9800;
+            background: rgba(255, 152, 0, 0.1);
+            border: 1px solid rgba(255, 152, 0, 0.3);
           }
         }
 
@@ -643,6 +703,7 @@ import { FormPreviewService } from '../../services/form-preview.service';
         display: flex;
         gap: 1rem;
         justify-content: center;
+        align-items: center;
 
         button[disabled] {
           opacity: 0.5;
@@ -651,6 +712,27 @@ import { FormPreviewService } from '../../services/form-preview.service';
           &:hover {
             cursor: not-allowed !important;
           }
+        }
+
+        ::ng-deep .mat-mdc-icon-button {
+          height: 36px;
+          width: 36px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+
+          .mat-icon {
+            font-size: 18px;
+            width: 18px;
+            height: 18px;
+          }
+        }
+
+        ::ng-deep .mat-mdc-raised-button {
+          height: 36px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
       }
     }
@@ -1490,6 +1572,11 @@ export class UploadComponent implements OnInit, OnChanges {
   isParsing = false;
   allValid = false;
   
+  uploadPaused = false;
+  uploadQueue: File[] = [];
+  processedFiles: string[] = [];
+  currentUploadIndex = 0;
+  
   // Schema modal properties
   showSchemaModal = false;
   selectedSchemaFileName = '';
@@ -1503,6 +1590,7 @@ export class UploadComponent implements OnInit, OnChanges {
 
   ngOnInit(): void {
     this.loadForms();
+    this.restoreUploadState();
 
     // Subscribe to currently previewed form
     this.formPreviewService.currentPreviewedFormId$.subscribe(formId => {
@@ -1628,46 +1716,185 @@ export class UploadComponent implements OnInit, OnChanges {
 
   uploadFiles() {
     if (this.selectedFiles.length === 0 || !this.allValid) return;
+    
     this.isUploading = true;
+    this.uploadPaused = false;
+    this.uploadQueue = [...this.selectedFiles];
+    this.processedFiles = [];
+    this.currentUploadIndex = 0;
     this.uploadProgress = { current: 0, total: this.selectedFiles.length };
+    this.saveUploadState();
+    
+    this.processNextFile();
+  }
 
-    // Send all files at once for concurrent processing
-    this.formService.uploadFiles(this.selectedFiles).subscribe({
-      next: (results: any[]) => {
-        this.uploadProgress.current = this.selectedFiles.length;
+  private processNextFile() {
+    if (this.uploadPaused || this.currentUploadIndex >= this.uploadQueue.length) {
+      if (this.currentUploadIndex >= this.uploadQueue.length) {
+        this.completeUpload();
+      }
+      this.saveUploadState();
+      return;
+    }
 
-        // Show results for each file
-        const successful = results.filter(r => !r.error).length;
-        const failed = results.filter(r => r.error).length;
-
-        if (failed === 0) {
-          this.snackBar.open(`✅ Successfully processed ${successful} form(s)!`, 'Close', { duration: 5000 });
+    const file = this.uploadQueue[this.currentUploadIndex];
+    this.formService.uploadSingleFile(file).subscribe({
+      next: (result: any) => {
+        this.processedFiles.push(file.name);
+        this.currentUploadIndex++;
+        this.uploadProgress.current = this.currentUploadIndex;
+        this.saveUploadState();
+        
+        if (!result.error) {
+          this.snackBar.open(`✅ Successfully processed ${file.name}`, 'Close', { duration: 2000 });
         } else {
-          this.snackBar.open(`⚠️ Processed ${successful} form(s), ${failed} failed. Check console for details.`, 'Close', { duration: 7000 });
+          this.snackBar.open(`❌ Failed to process ${file.name}`, 'Close', { duration: 3000 });
         }
-
-        // Wait a moment for database operations to complete, then refresh the forms list
-        setTimeout(() => {
-          this.isUploading = false;
-          this.selectedFiles = [];
-          this.validationResults = {};
-          this.allValid = false;
-          this.loadForms();
-        }, 1000); // 1 second delay to ensure database operations complete
+        
+        setTimeout(() => this.processNextFile(), 500);
       },
       error: (error: any) => {
-        this.isUploading = false;
-        console.error('Upload failed:', error);
-        this.snackBar.open(`❌ Upload failed: ${error.error?.message || error.message || 'Unknown error'}`, 'Close', { duration: 5000 });
+        console.error(`Upload failed for ${file.name}:`, error);
+        this.snackBar.open(`❌ Upload failed for ${file.name}`, 'Close', { duration: 3000 });
+        this.currentUploadIndex++;
+        this.uploadProgress.current = this.currentUploadIndex;
+        this.saveUploadState();
+        
+        setTimeout(() => this.processNextFile(), 500);
       }
     });
   }
 
-  private resetUploadState(): void {
-    this.isUploading = false;
-    this.selectedFiles = [];
+  private completeUpload() {
+    const successful = this.processedFiles.length;
+    const total = this.uploadQueue.length;
+    const failed = total - successful;
+
+    if (failed === 0) {
+      this.snackBar.open(`✅ Successfully processed all ${successful} form(s)!`, 'Close', { duration: 5000 });
+    } else {
+      this.snackBar.open(`⚠️ Processed ${successful} form(s), ${failed} failed.`, 'Close', { duration: 7000 });
+    }
+
+    this.resetUploadState();
     this.loadForms();
   }
+
+  pauseUpload() {
+    this.uploadPaused = true;
+    this.saveUploadState();
+    this.snackBar.open('⏸️ Upload paused', 'Close', { duration: 2000 });
+  }
+
+  resumeUpload() {
+    this.uploadPaused = false;
+    this.saveUploadState();
+    this.snackBar.open('▶️ Upload resumed', 'Close', { duration: 2000 });
+    this.processNextFile();
+  }
+
+  cancelUpload() {
+    if (confirm('Are you sure you want to cancel the upload? Progress will be lost.')) {
+      this.resetUploadState();
+      this.snackBar.open('🛑 Upload cancelled', 'Close', { duration: 3000 });
+    }
+  }
+
+  private resetUploadState() {
+    this.isUploading = false;
+    this.uploadPaused = false;
+    this.uploadQueue = [];
+    this.processedFiles = [];
+    this.currentUploadIndex = 0;
+    this.selectedFiles = [];
+    this.validationResults = {};
+    this.allValid = false;
+    this.uploadProgress = { current: 0, total: 0 };
+    this.clearUploadSession();
+  }
+
+  private saveUploadState() {
+    if (typeof window === 'undefined' || !window.sessionStorage) {
+      return;
+    }
+    
+    if (this.isUploading || this.uploadPaused) {
+      const state = {
+        isUploading: this.isUploading,
+        uploadPaused: this.uploadPaused,
+        uploadQueue: this.uploadQueue.map(file => ({
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          lastModified: file.lastModified
+        })),
+        processedFiles: this.processedFiles,
+        currentUploadIndex: this.currentUploadIndex,
+        uploadProgress: this.uploadProgress,
+        validationResults: this.validationResults,
+        allValid: this.allValid,
+        timestamp: Date.now()
+      };
+      sessionStorage.setItem('uploadState', JSON.stringify(state));
+    }
+  }
+
+  private restoreUploadState() {
+    if (typeof window === 'undefined' || !window.sessionStorage) {
+      return;
+    }
+    
+    const savedState = sessionStorage.getItem('uploadState');
+    if (savedState) {
+      try {
+        const state = JSON.parse(savedState);
+        const timeDiff = Date.now() - state.timestamp;
+        
+        if (timeDiff < 30 * 60 * 1000) {
+          this.isUploading = state.isUploading;
+          this.uploadPaused = state.uploadPaused;
+          this.processedFiles = state.processedFiles || [];
+          this.currentUploadIndex = state.currentUploadIndex || 0;
+          this.uploadProgress = state.uploadProgress || { current: 0, total: 0 };
+          this.validationResults = state.validationResults || {};
+          this.allValid = state.allValid || false;
+          
+          if (this.isUploading || this.uploadPaused) {
+            this.snackBar.open('📋 Previous upload session restored. You can resume or cancel.', 'Close', { 
+              duration: 5000,
+              panelClass: ['custom-snackbar']
+            });
+          }
+        } else {
+          this.clearUploadSession();
+        }
+      } catch (error) {
+        console.error('Failed to restore upload state:', error);
+        this.clearUploadSession();
+      }
+    }
+  }
+
+  private clearUploadSession() {
+    if (typeof window === 'undefined' || !window.sessionStorage) {
+      return;
+    }
+    sessionStorage.removeItem('uploadState');
+  }
+
+  getFileUploadStatus(fileName: string, index: number): string {
+    if (this.processedFiles.includes(fileName)) {
+      return 'Completed';
+    } else if (index === this.currentUploadIndex) {
+      return this.uploadPaused ? 'Paused' : 'Processing...';
+    } else if (index < this.currentUploadIndex) {
+      return 'Completed';
+    } else {
+      return 'Pending';
+    }
+  }
+
+
 
   loadForms(): void {
     console.log('Loading forms from database...');

@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { FormValidation } from '../models/form.model';
 
 export interface FormData {
@@ -81,6 +82,14 @@ export class FormService {
         const formData = new FormData();
         formData.append('file', file);
         return this.http.post<FormDetails>(`${this.apiUrl}/upload`, formData);
+    }
+
+    uploadSingleFile(file: File): Observable<any> {
+        const formData = new FormData();
+        formData.append('files', file);
+        return this.http.post<any[]>(`${this.apiUrl}/upload`, formData).pipe(
+            map((results: any[]) => results[0])
+        );
     }
 
     uploadFiles(files: File[]): Observable<any[]> {
