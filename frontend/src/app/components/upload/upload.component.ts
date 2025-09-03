@@ -715,24 +715,25 @@ import { FormPreviewService } from '../../services/form-preview.service';
         }
 
         ::ng-deep .mat-mdc-icon-button {
-          height: 36px;
-          width: 36px;
+          min-height: 36px;
+          min-width: 36px;
           display: flex;
           align-items: center;
           justify-content: center;
 
           .mat-icon {
-            font-size: 18px;
-            width: 18px;
-            height: 18px;
+            font-size: 20px;
+            width: 20px;
+            height: 20px;
           }
         }
 
         ::ng-deep .mat-mdc-raised-button {
-          height: 36px;
+          min-height: 36px;
           display: flex;
           align-items: center;
           justify-content: center;
+          padding: 0 16px;
         }
       }
     }
@@ -1746,16 +1747,16 @@ export class UploadComponent implements OnInit, OnChanges {
         this.saveUploadState();
         
         if (!result.error) {
-          this.snackBar.open(`✅ Successfully processed ${file.name}`, 'Close', { duration: 2000 });
+          this.snackBar.open(`Successfully processed ${file.name}`, 'Close', { duration: 2000 });
         } else {
-          this.snackBar.open(`❌ Failed to process ${file.name}`, 'Close', { duration: 3000 });
+          this.snackBar.open(`Failed to process ${file.name}`, 'Close', { duration: 3000 });
         }
         
         setTimeout(() => this.processNextFile(), 500);
       },
       error: (error: any) => {
         console.error(`Upload failed for ${file.name}:`, error);
-        this.snackBar.open(`❌ Upload failed for ${file.name}`, 'Close', { duration: 3000 });
+        this.snackBar.open(`Upload failed for ${file.name}`, 'Close', { duration: 3000 });
         this.currentUploadIndex++;
         this.uploadProgress.current = this.currentUploadIndex;
         this.saveUploadState();
@@ -1771,9 +1772,9 @@ export class UploadComponent implements OnInit, OnChanges {
     const failed = total - successful;
 
     if (failed === 0) {
-      this.snackBar.open(`✅ Successfully processed all ${successful} form(s)!`, 'Close', { duration: 5000 });
+      this.snackBar.open(`Successfully processed all ${successful} form(s)!`, 'Close', { duration: 5000 });
     } else {
-      this.snackBar.open(`⚠️ Processed ${successful} form(s), ${failed} failed.`, 'Close', { duration: 7000 });
+      this.snackBar.open(`Processed ${successful} form(s), ${failed} failed.`, 'Close', { duration: 7000 });
     }
 
     this.resetUploadState();
@@ -1783,20 +1784,20 @@ export class UploadComponent implements OnInit, OnChanges {
   pauseUpload() {
     this.uploadPaused = true;
     this.saveUploadState();
-    this.snackBar.open('⏸️ Upload paused', 'Close', { duration: 2000 });
+    this.snackBar.open('Upload paused', 'Close', { duration: 2000 });
   }
 
   resumeUpload() {
     this.uploadPaused = false;
     this.saveUploadState();
-    this.snackBar.open('▶️ Upload resumed', 'Close', { duration: 2000 });
+    this.snackBar.open('Upload resumed', 'Close', { duration: 2000 });
     this.processNextFile();
   }
 
   cancelUpload() {
     if (confirm('Are you sure you want to cancel the upload? Progress will be lost.')) {
       this.resetUploadState();
-      this.snackBar.open('🛑 Upload cancelled', 'Close', { duration: 3000 });
+      this.snackBar.open('Upload cancelled', 'Close', { duration: 3000 });
     }
   }
 
@@ -1906,7 +1907,7 @@ export class UploadComponent implements OnInit, OnChanges {
       },
       error: (error: any) => {
         console.error('Failed to load forms:', error);
-        this.snackBar.open('❌ Failed to refresh forms list', 'Close', { duration: 3000 });
+        this.snackBar.open('Failed to refresh forms list', 'Close', { duration: 3000 });
       }
     });
   }
