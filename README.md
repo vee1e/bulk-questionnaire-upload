@@ -5,13 +5,14 @@ A comprehensive full-stack web application for bulk uploading, validating, parsi
 ## Table of Contents
 
 - [Overview](#overview)
-- [Architecture](#architecture)
-- [Technology Stack](#technology-stack)
 - [Prerequisites](#prerequisites)
 - [Installation & Setup](#installation--setup)
+- [Architecture](#architecture)
+- [Technology Stack](#technology-stack)
 - [Configuration](#configuration)
 - [API Reference](#api-reference)
 - [Database Schema](#database-schema)
+- [TempData JSON Format](#tempdata-json-format)
 - [File Format Specifications](#file-format-specifications)
 - [Performance Characteristics](#performance-characteristics)
 - [Testing Strategy](#testing-strategy)
@@ -28,11 +29,13 @@ This application enables organizations to efficiently manage questionnaire forms
 
 ### Key Features
 
-- **Bulk File Upload**: Process multiple Excel files simultaneously with progress tracking
+- **Async Bulk Upload**: Process multiple Excel files concurrently with pause, resume, and stop controls
+- **TempData JSON Format**: Generate comprehensive JSON output matching mobile app data structure
+- **Advanced Upload Queue**: Configurable concurrent upload limits with session persistence
 - **Comprehensive Validation**: Structural and content validation with detailed error reporting
-- **Schema Parsing**: Convert Excel files to structured JSON schemas
+- **Dynamic Form Configuration**: Extract form settings directly from Excel sheets with sensible defaults
 - **Form Management**: CRUD operations for stored forms with metadata tracking
-- **Real-time Progress**: Visual feedback during file processing operations
+- **Real-time Progress**: Visual feedback with top-positioned success notifications
 - **Dark Theme UI**: Modern Angular Material interface with accessibility support
 - **Performance Monitoring**: Built-in metrics collection and analysis
 - **Keyboard Shortcuts**: Power-user features for efficient navigation
@@ -44,34 +47,34 @@ This application enables organizations to efficiently manage questionnaire forms
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    Angular Frontend                    │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │  Components: Upload, Search, Navbar            │   │
-│  │  Services: FormService, FormPreviewService     │   │
-│  │  Features: Drag & Drop, Progress Tracking      │   │
-│  └─────────────────────────────────────────────────┘   │
+│                    Angular Frontend                     │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  Components: Upload, Search, Navbar             │    │
+│  │  Services: FormService, FormPreviewService      │    │
+│  │  Features: Drag & Drop, Progress Tracking       │    │
+│  └─────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────┘
                               │
                               │ HTTP/JSON API
                               │
 ┌─────────────────────────────────────────────────────────┐
-│                    FastAPI Backend                     │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │  Core: main.py (FastAPI app, CORS, middleware) │   │
-│  │  Business Logic: xlsform_parser.py              │   │
-│  │  Data Access: database_service.py               │   │
-│  │  Models: Pydantic validation models             │   │
-│  └─────────────────────────────────────────────────┘   │
+│                    FastAPI Backend                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  Core: main.py (FastAPI app, CORS, middleware)  │    │
+│  │  Business Logic: xlsform_parser.py              │    │
+│  │  Data Access: database_service.py               │    │
+│  │  Models: Pydantic validation models             │    │
+│  └─────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────┘
                               │
                               │ MongoDB Driver
                               │
 ┌─────────────────────────────────────────────────────────┐
-│                     MongoDB Database                   │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │  Collections: forms, questions, options         │   │
-│  │  Features: Async operations, indexing           │   │
-│  └─────────────────────────────────────────────────┘   │
+│                     MongoDB Database                    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  Collections: forms, questions, options         │    │
+│  │  Features: Async operations, indexing           │    │
+│  └─────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -89,17 +92,21 @@ This application enables organizations to efficiently manage questionnaire forms
 
 - **Framework**: Angular 19 with standalone components
 - **UI Library**: Angular Material with custom dark theme
+- **Upload System**: Async queue with concurrent processing, pause/resume/stop controls
+- **Notifications**: Top-positioned success toasts with Material Snackbar
 - **Styling**: SCSS with CSS custom properties
 - **Build Tool**: Angular CLI with SSR support
 - **Testing**: Vitest with jsdom environment
-- **HTTP Client**: Angular HttpClient with fetch API
-- **State Management**: RxJS observables with service-based architecture
+- **HTTP Client**: Angular HttpClient with fetch API and AbortController
+- **State Management**: RxJS observables with service-based architecture and session persistence
 
 ### Backend
 
 - **Framework**: FastAPI with async/await support
 - **Web Server**: Uvicorn ASGI server
 - **Data Processing**: Pandas for Excel parsing, OpenPyXL for file handling
+- **JSON Format**: TempData.json structure with comprehensive form configuration
+- **Dynamic Configuration**: Extract form settings from Excel sheets with defaults
 - **Database**: MongoDB with Motor async driver
 - **Validation**: Pydantic models with comprehensive error handling
 - **Documentation**: Auto-generated OpenAPI/Swagger UI
@@ -312,7 +319,7 @@ Validates Excel file structure and content without processing.
 ```
 
 #### POST `/api/forms/parse`
-Parses Excel file and returns structured JSON schema without database storage.
+Parses Excel file and returns comprehensive tempData.json format without database storage.
 
 **Request**: `multipart/form-data`
 ```typescript
@@ -321,41 +328,42 @@ Parses Excel file and returns structured JSON schema without database storage.
 }
 ```
 
-**Response**:
+**Response**: Array containing questionnaire response and form definition
 ```json
-{
-  "id": null,
-  "title": {"default": "Sample Questionnaire"},
-  "version": "1.0.0",
-  "language": "en",
-  "groups": [
-    {
-      "name": "default",
-      "label": {"default": "Default Group"},
-      "questions": [
-        {
-          "type": "text",
-          "name": "1",
-          "label": {"default": "What is your name?"},
-          "required": false,
-          "choices": null
-        }
-      ]
-    }
-  ],
-  "metadata": {
-    "questions_count": 5,
-    "options_count": 15,
-    "parse_time": 0.082,
-    "sheets_found": ["Forms", "Questions Info", "Answer Options"],
-    "file_name": "questionnaire.xlsx",
-    "validation_warnings": []
+[
+  {
+    "_id": "ObjectId(\"66c2e4aca61889ab24b58407\")",
+    "formId": 123456789,
+    "version": "1.0.0",
+    "language": [{"lng": "en", "default": true}],
+    "question": [
+      {
+        "order": 1,
+        "input_type": 1,
+        "answer": "",
+        "initialAnswer": ""
+      }
+    ],
+    "responseUpdateHistory": [],
+    "appVersion": "1.0.0",
+    "responseIds": {
+      "formResponseId": "ObjectId(\"66c2e4aca61889ab24b58408\")",
+      "tempResponseId": "ObjectId(\"66c2e4aca61889ab24b58409\")"
+    },
+    "syncStatus": {
+      "questions": [{"order": 1, "synced": false}]
+    },
+    "keyInfoOrders": [1, 2, 3],
+    "copiedFormId": 987654321,
+    "title": "Sample Questionnaire",
+    "subtitle": "Form subtitle",
+    "description": "Form description"
   }
-}
+]
 ```
 
 #### POST `/api/upload`
-Processes and stores multiple Excel files concurrently.
+Processes and stores multiple Excel files concurrently with async queue management.
 
 **Request**: `multipart/form-data`
 ```typescript
@@ -364,7 +372,7 @@ Processes and stores multiple Excel files concurrently.
 }
 ```
 
-**Response**: Array of parsed form objects with database IDs and metadata.
+**Response**: Array of tempData.json format objects with database IDs and comprehensive form configuration.
 
 ### Form Management Endpoints
 
@@ -388,33 +396,39 @@ Retrieves all forms with summary information.
 ```
 
 #### GET `/api/forms/{form_id}`
-Retrieves complete form data including questions and options.
+Retrieves complete form data in tempData.json format including questions and options.
 
-**Response**:
+**Response**: Array containing comprehensive form configuration
 ```json
-{
-  "form": {
-    "id": "507f1f77bcf86cd799439011",
-    "title": "Sample Form",
-    "language": "en",
+[
+  {
+    "_id": "ObjectId(\"507f1f77bcf86cd799439011\")",
+    "formId": 123456789,
     "version": "1.0.0",
+    "language": [{"lng": "en", "default": true}],
+    "question": [
+      {
+        "order": 1,
+        "input_type": 1,
+        "answer": "",
+        "initialAnswer": ""
+      }
+    ],
+    "responseUpdateHistory": [],
+    "appVersion": "1.0.0",
+    "responseIds": {
+      "formResponseId": "ObjectId(\"66c2e4aca61889ab24b58408\")",
+      "tempResponseId": "ObjectId(\"66c2e4aca61889ab24b58409\")"
+    },
+    "syncStatus": {
+      "questions": [{"order": 1, "synced": false}]
+    },
+    "keyInfoOrders": [1, 2, 3],
+    "copiedFormId": 987654321,
+    "title": "Sample Form",
     "created_at": "2024-01-15T10:30:00Z"
-  },
-  "questions": [
-    {
-      "id": "507f1f77bcf86cd799439012",
-      "form_id": "507f1f77bcf86cd799439011",
-      "order": 1,
-      "title": "What is your name?",
-      "view_sequence": 1,
-      "input_type": 1,
-      "created_at": "2024-01-15T10:30:00Z"
-    }
-  ],
-  "options": [...],
-  "questions_count": 5,
-  "options_count": 15
-}
+  }
+]
 ```
 
 #### PUT `/api/forms/{form_id}/update`
@@ -484,6 +498,27 @@ Deletes all forms and related data (bulk operation).
 - Questions contain multiple options (1:N)
 - Choice questions (types 2, 3) must have corresponding options
 - All option orders must map to existing question orders
+
+## TempData JSON Format
+
+### Overview
+The system now generates comprehensive JSON output in the `tempData.json` format, which includes both questionnaire response data and complete form configuration. This format is designed for mobile app compatibility and includes:
+
+### Key Components
+- **Response Data**: Questionnaire responses with answer tracking and update history
+- **Form Configuration**: Complete form definition with language settings and question details
+- **Sync Status**: Question-level synchronization tracking
+- **Metadata**: Form versioning, IDs, and configuration flags
+- **Geographic Data**: 6-level geographic hierarchy support
+- **Language Support**: Multi-language form definitions with default language selection
+
+### Dynamic Configuration
+Form settings are now extracted dynamically from the Excel `Forms` sheet, including:
+- Form title, subtitle, and description
+- Version information and language settings
+- Boolean configuration flags (isLocationMandatory, allowEdit, etc.)
+- Reference IDs and key information orders
+- Custom form-specific settings with sensible defaults
 
 ## File Format Specifications
 
@@ -687,34 +722,6 @@ EXPOSE 80
 - **Production**: Optimized build, production database, SSL/TLS
 
 ## Development Guidelines
-
-### Code Organization
-
-**Backend Structure**:
-```
-backend/
-├── main.py                 # FastAPI application
-├── database.py            # Database connection
-├── services/
-│   ├── xlsform_parser.py  # Business logic
-│   └── database_service.py # Data access
-├── models/
-│   └── form.py           # Pydantic models
-├── requirements.txt       # Dependencies
-└── metrics.txt           # Performance metrics
-```
-
-**Frontend Structure**:
-```
-frontend/
-├── src/app/
-│   ├── components/       # UI components
-│   ├── services/        # API and state services
-│   ├── models/          # TypeScript interfaces
-│   └── styles.scss      # Global styles
-├── public/              # Static assets
-└── package.json         # Dependencies
-```
 
 ### Coding Standards
 

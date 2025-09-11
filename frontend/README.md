@@ -52,18 +52,22 @@ npm run test:run   # Run tests once
 
 #### Bulk File Operations
 - **Drag & Drop Interface** - Intuitive file selection with visual feedback
-- **Multi-file Upload** - Process multiple Excel files simultaneously
+- **Async Multi-file Upload** - Process multiple Excel files concurrently with configurable limits
+- **Upload Queue Management** - Pause, resume, and stop upload operations
 - **Progress Tracking** - Real-time progress bars with color-coded operations
+- **Session Persistence** - Upload state preserved across browser sessions
 - **Batch Validation** - Validate all files before upload with detailed error reports
 
 #### Form Management
-- **Excel Parsing** - Convert XLS/XLSX files to structured JSON schemas
+- **TempData JSON Parsing** - Convert XLS/XLSX files to comprehensive tempData.json format
+- **Dynamic Form Configuration** - Extract and display form settings from Excel data
 - **Form Preview** - Interactive form details with question/option navigation
 - **Search & Filter** - Real-time search across all uploaded forms
 - **Form Updates** - In-place form updates preserving history and IDs
 
 #### User Experience
 - **Dark Theme** - Custom black/white Material Design theme
+- **Top-positioned Notifications** - Success toasts appear at top of screen for immediate visibility
 - **Keyboard Shortcuts** - Power user features for efficient navigation
 - **Responsive Design** - Works seamlessly on desktop and mobile
 - **Accessibility** - ARIA support and keyboard navigation
@@ -74,30 +78,7 @@ npm run test:run   # Run tests once
 - **Offline Support** - Graceful degradation and connection status
 - **Memory Management** - Efficient file handling and cleanup
 
-## Project Structure
-
-```
-frontend/
-├── src/
-│   ├── app/
-│   │   ├── components/
-│   │   │   ├── navbar/           # Navigation with form preview
-│   │   │   ├── search/           # Search functionality
-│   │   │   └── upload/           # Core upload/management logic
-│   │   ├── models/               # TypeScript interfaces
-│   │   ├── services/             # API and state management
-│   │   ├── app.component.ts      # Root component
-│   │   ├── app.config.ts         # Application configuration
-│   │   ├── app.routes.ts         # Routing (currently single-page)
-│   │   └── main.ts               # Bootstrap
-│   ├── server.ts                 # SSR server configuration
-│   ├── main.server.ts            # SSR bootstrap
-│   └── styles.scss               # Global dark theme styles
-├── public/                       # Static assets
-├── angular.json                  # Angular CLI configuration
-├── vitest.config.ts              # Testing configuration
-└── package.json                  # Dependencies and scripts
-```
+ 
 
 ## Core Components
 
@@ -109,19 +90,25 @@ The main component handling all file operations and form management:
 ```typescript
 // Key features implemented:
 - Drag & drop file handling
-- Multi-file validation and parsing
-- Real-time progress tracking
-- Form list management
-- Schema preview modal
+- Async multi-file validation and parsing
+- Concurrent upload queue management
+- Real-time progress tracking with pause/resume/stop
+- Form list management with tempData.json format
+- Schema preview modal with format conversion
 - Error handling and user feedback
+- Session persistence for upload state
 ```
 
 **Key Methods:**
 - `onDragOver/onDrop` - File drag & drop handling
 - `validateFiles()` - Batch file validation
-- `uploadFiles()` - Multi-file upload with progress
+- `uploadFiles()` - Async multi-file upload initialization
+- `processQueueAsync()` - Concurrent upload queue processing
+- `uploadSingleFileAsync()` - Individual file upload with Promise wrapper
+- `pauseUpload/resumeUpload/cancelUpload()` - Upload control methods
 - `parseFilesOnly()` - Preview parsing without saving
-- `showFormDetails()` - Form preview integration
+- `showFormDetails()` - Form preview integration with format conversion
+- `convertTempDataToFormDetails()` - Convert tempData.json to FormDetails interface
 
 ### NavbarComponent
 **Location:** `src/app/components/navbar/navbar.component.ts`
@@ -154,7 +141,7 @@ Intelligent search functionality:
 ### FormService
 **Location:** `src/app/services/form.service.ts`
 
-Centralized API communication layer:
+Centralized API communication layer with tempData.json format support:
 
 ```typescript
 @Injectable({ providedIn: 'root' })
@@ -163,11 +150,11 @@ export class FormService {
 
   // Core API methods
   validateFile(file: File): Observable<FormValidation>
-  parseFile(file: File): Observable<ParsedSchema>
-  uploadFiles(files: File[]): Observable<any[]>
+  parseFile(file: File): Observable<any[]>  // Returns tempData.json array format
+  uploadFiles(files: File[]): Observable<any[]>  // Returns tempData.json array format
   getAllForms(): Observable<FormsResponse>
-  getFormById(formId: string): Observable<FormDetails>
-  updateForm(formId: string, file: File): Observable<FormDetails>
+  getFormById(formId: string): Observable<any>  // Returns tempData.json array format
+  updateForm(formId: string, file: File): Observable<any>
   deleteForm(formId: string): Observable<{ message: string }>
   deleteAllForms(): Observable<{ message: string }>
 }
@@ -254,6 +241,40 @@ npm run build
 npm run serve:ssr:mform-upload
 # Starts Express server on port 4000
 ```
+
+## Async Upload System
+
+### Upload Queue Configuration
+The upload system supports configurable concurrent processing:
+
+```typescript
+// Upload control properties
+uploadStopped: boolean = false;
+uploadController: AbortController | null = null;
+activeUploads: Promise<void>[] = [];
+maxConcurrentUploads: number = 3;  // Configurable limit
+```
+
+### Upload Control Methods
+- **`uploadFiles()`** - Initialize async upload process
+- **`processQueueAsync()`** - Process files concurrently with limits
+- **`pauseUpload()`** - Pause current uploads (preserves queue)
+- **`resumeUpload()`** - Resume from where paused
+- **`cancelUpload()`** - Stop all uploads and abort requests
+- **`setMaxConcurrentUploads(max)`** - Configure concurrency limit
+
+### Session Persistence
+Upload state is automatically saved to browser session storage:
+- Current upload queue and progress
+- Processed files list
+- Upload pause/stop state
+- Form validation results
+
+### Notification System
+Success notifications now appear at the top of the screen:
+- Individual file success: "Successfully processed [filename]"
+- Batch completion: "Successfully processed all X form(s)!"
+- Upload resume: "Upload resumed"
 
 ## Configuration & Environment
 
@@ -349,19 +370,33 @@ interface FormData {
 }
 ```
 
-### Parsed Schema Structure
+### TempData JSON Structure
 ```typescript
-interface ParsedSchema {
-  id: string | null;
-  title: { default: string };
+interface TempDataResponse {
+  _id: string;  // ObjectId string
+  formId: number;
   version: string;
-  language: string;
-  groups: any[];
-  metadata: {
-    questions_count: number;
-    options_count: number;
-    parse_time: number;
+  language: Array<{lng: string, default: boolean}>;
+  question: Array<{
+    order: number;
+    input_type: number;
+    answer: string;
+    initialAnswer: string;
+  }>;
+  responseUpdateHistory: any[];
+  appVersion: string;
+  responseIds: {
+    formResponseId: string;
+    tempResponseId: string;
   };
+  syncStatus: {
+    questions: Array<{order: number, synced: boolean}>;
+  };
+  keyInfoOrders: number[];
+  copiedFormId: number;
+  title: string;
+  subtitle?: string;
+  description?: string;
 }
 ```
 

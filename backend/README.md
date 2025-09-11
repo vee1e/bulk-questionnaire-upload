@@ -2,6 +2,27 @@
 
 A comprehensive FastAPI backend for bulk Excel-based questionnaire uploads, featuring advanced validation, parsing, and storage capabilities. Designed for robust integration with the Angular frontend and built for extensibility.
 
+## Quick Start
+
+### Installation
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # Windows: venv\\Scripts\\activate
+pip install -r requirements.txt
+cp .env.example .env
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+### Environment
+```bash
+MONGODB_URL=mongodb://localhost:27017
+DATABASE_NAME=mform_bulk_upload
+API_HOST=0.0.0.0
+API_PORT=8000
+FRONTEND_URL=http://localhost:4200
+```
+
 ## Architecture Overview
 
 ### Core Components
@@ -16,10 +37,12 @@ A comprehensive FastAPI backend for bulk Excel-based questionnaire uploads, feat
 
 #### **Business Logic (`services/xlsform_parser.py`)**
 - **Excel File Validation**: Comprehensive structural and content validation
-- **Data Parsing**: XLSForm-compliant parsing with multiple question types
+- **TempData JSON Generation**: Convert Excel data to comprehensive tempData.json format
+- **Dynamic Form Configuration**: Extract form settings from Excel sheets with sensible defaults
 - **Cross-Reference Validation**: Ensures data consistency between sheets
 - **Error Classification**: Detailed error categorization with actionable suggestions
 - **Performance Optimization**: Concurrent processing for bulk uploads
+- **ObjectId Generation**: Mock ObjectId creation for mobile app compatibility
 
 #### **Database Layer (`services/database_service.py`)**
 - **Async MongoDB Operations**: Full CRUD operations with error handling
@@ -71,45 +94,46 @@ file: UploadFile  # .xls or .xlsx file
     ```
 
 #### **POST `/api/forms/parse`**
-Parses Excel file and returns structured JSON schema without database storage.
+Parses Excel file and returns comprehensive tempData.json format without database storage.
 
 **Request**: `multipart/form-data`
 ```python
 file: UploadFile  # .xls or .xlsx file
 ```
 
-**Response**:
-    ```json
-    {
-      "id": null,
-  "title": {"default": "Sample Questionnaire"},
-  "version": "1.0.0",
-      "language": "en",
-  "groups": [
-    {
-      "name": "default",
-      "label": {"default": "Default Group"},
-      "questions": [
-        {
-          "type": "text",
-          "name": "1",
-          "label": {"default": "What is your name?"},
-          "required": false,
-          "choices": null
-        }
-      ]
-    }
-  ],
-  "metadata": {
-    "questions_count": 5,
-    "options_count": 15,
-    "parse_time": 0.082,
-    "sheets_found": ["Forms", "Questions Info", "Answer Options"],
-    "file_name": "questionnaire.xlsx",
-    "validation_warnings": []
+**Response**: Array containing questionnaire response and form definition
+```json
+[
+  {
+    "_id": "ObjectId(\"66c2e4aca61889ab24b58407\")",
+    "formId": 123456789,
+    "version": "1.0.0",
+    "language": [{"lng": "en", "default": true}],
+    "question": [
+      {
+        "order": 1,
+        "input_type": 1,
+        "answer": "",
+        "initialAnswer": ""
       }
-    }
-    ```
+    ],
+    "responseUpdateHistory": [],
+    "appVersion": "1.0.0",
+    "responseIds": {
+      "formResponseId": "ObjectId(\"66c2e4aca61889ab24b58408\")",
+      "tempResponseId": "ObjectId(\"66c2e4aca61889ab24b58409\")"
+    },
+    "syncStatus": {
+      "questions": [{"order": 1, "synced": false}]
+    },
+    "keyInfoOrders": [1, 2, 3],
+    "copiedFormId": 987654321,
+    "title": "Sample Questionnaire",
+    "subtitle": "Form subtitle",
+    "description": "Form description"
+  }
+]
+```
 
 #### **POST `/api/upload`**
 Processes and stores multiple Excel files concurrently.
@@ -119,7 +143,7 @@ Processes and stores multiple Excel files concurrently.
 files: List[UploadFile]  # Multiple .xls or .xlsx files
 ```
 
-**Response**: Array of parsed form objects with database IDs and metadata.
+**Response**: Array of tempData.json format objects with database IDs and comprehensive form configuration.
 
 ### Form Management Endpoints
 
@@ -143,33 +167,39 @@ Retrieves all forms with summary information.
 ```
 
 #### **GET `/api/forms/{form_id}`**
-Retrieves complete form data including questions and options.
+Retrieves complete form data in tempData.json format including questions and options.
 
-**Response**:
-    ```json
-{
-  "form": {
-    "id": "507f1f77bcf86cd799439011",
-    "title": "Sample Form",
-    "language": "en",
+**Response**: Array containing comprehensive form configuration
+```json
+[
+  {
+    "_id": "ObjectId(\"507f1f77bcf86cd799439011\")",
+    "formId": 123456789,
     "version": "1.0.0",
+    "language": [{"lng": "en", "default": true}],
+    "question": [
+      {
+        "order": 1,
+        "input_type": 1,
+        "answer": "",
+        "initialAnswer": ""
+      }
+    ],
+    "responseUpdateHistory": [],
+    "appVersion": "1.0.0",
+    "responseIds": {
+      "formResponseId": "ObjectId(\"66c2e4aca61889ab24b58408\")",
+      "tempResponseId": "ObjectId(\"66c2e4aca61889ab24b58409\")"
+    },
+    "syncStatus": {
+      "questions": [{"order": 1, "synced": false}]
+    },
+    "keyInfoOrders": [1, 2, 3],
+    "copiedFormId": 987654321,
+    "title": "Sample Form",
     "created_at": "2024-01-15T10:30:00Z"
-  },
-  "questions": [
-    {
-      "id": "507f1f77bcf86cd799439012",
-      "form_id": "507f1f77bcf86cd799439011",
-      "order": 1,
-      "title": "What is your name?",
-      "view_sequence": 1,
-      "input_type": 1,
-      "created_at": "2024-01-15T10:30:00Z"
-    }
-  ],
-  "options": [...],
-  "questions_count": 5,
-  "options_count": 15
-}
+  }
+]
 ```
 
 #### **PUT `/api/forms/{form_id}/update`**
@@ -378,6 +408,32 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 - **Memory Management**: File stream handling to prevent memory leaks
 
 ## Development & Extension Guide
+
+### Key Parser Methods
+
+#### **TempData Format Generation**
+```python
+# services/xlsform_parser.py
+class XLSFormParser:
+    def _extract_form_config(self, forms_df) -> Dict[str, Any]:
+        """Extract dynamic form configuration from Forms sheet"""
+        # Extracts title, version, language, boolean flags, etc.
+        
+    def _build_temp_data_format(self, forms_df, questions_df, options_df) -> List[Dict]:
+        """Build comprehensive tempData.json structure"""
+        # Creates response data and form definition
+        
+    def _convert_db_to_temp_data_format(self, form, questions, options) -> List[Dict]:
+        """Convert database entities to tempData.json format"""
+        # Handles database-to-JSON conversion
+```
+
+#### **Dynamic Configuration Features**
+- **Form Settings Extraction**: Automatically extracts configuration from Excel Forms sheet
+- **Sensible Defaults**: Provides fallback values for missing configuration
+- **ObjectId Generation**: Creates mock ObjectIds for mobile app compatibility
+- **Language Support**: Handles single and multi-language configurations
+- **Boolean Flags**: Processes form-specific feature toggles
 
 ### Adding New Features
 
