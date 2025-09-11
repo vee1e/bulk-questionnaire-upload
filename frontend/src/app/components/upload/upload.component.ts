@@ -1574,9 +1574,15 @@ export class UploadComponent implements OnInit, OnChanges {
   allValid = false;
   
   uploadPaused = false;
+  uploadStopped = false;
   uploadQueue: File[] = [];
   processedFiles: string[] = [];
   currentUploadIndex = 0;
+  
+  // Async upload control
+  private uploadController: AbortController | null = null;
+  private activeUploads = new Set<Promise<any>>();
+  private maxConcurrentUploads = 3;
   
   // Schema modal properties
   showSchemaModal = false;
@@ -1715,18 +1721,23 @@ export class UploadComponent implements OnInit, OnChanges {
     });
   }
 
-  uploadFiles() {
+  async uploadFiles() {
     if (this.selectedFiles.length === 0 || !this.allValid) return;
     
     this.isUploading = true;
     this.uploadPaused = false;
+    this.uploadStopped = false;
     this.uploadQueue = [...this.selectedFiles];
     this.processedFiles = [];
     this.currentUploadIndex = 0;
     this.uploadProgress = { current: 0, total: this.selectedFiles.length };
-    this.saveUploadState();
     
-    this.processNextFile();
+    // Create new abort controller for this upload session
+    this.uploadController = new AbortController();
+    this.activeUploads.clear();
+    
+    this.saveUploadState();
+    await this.processQueueAsync();
   }
 
   private processNextFile() {
@@ -1747,7 +1758,10 @@ export class UploadComponent implements OnInit, OnChanges {
         this.saveUploadState();
         
         if (!result.error) {
-          this.snackBar.open(`Successfully processed ${file.name}`, 'Close', { duration: 2000 });
+          this.snackBar.open(`Successfully processed ${file.name}`, 'Close', { 
+            duration: 2000, 
+            verticalPosition: 'top' 
+          });
         } else {
           this.snackBar.open(`Failed to process ${file.name}`, 'Close', { duration: 3000 });
         }
@@ -1766,13 +1780,119 @@ export class UploadComponent implements OnInit, OnChanges {
     });
   }
 
+  private async processQueueAsync() {
+    try {
+      const remainingFiles = this.uploadQueue.slice(this.currentUploadIndex);
+      
+      // Process files in chunks with concurrency limit
+      for (let i = 0; i < remainingFiles.length; i += this.maxConcurrentUploads) {
+        // Check if upload was stopped or paused
+        if (this.uploadStopped) {
+          break;
+        }
+        
+        // Wait for pause to be lifted
+        while (this.uploadPaused && !this.uploadStopped) {
+          await this.delay(100); // Check every 100ms
+        }
+        
+        if (this.uploadStopped) {
+          break;
+        }
+        
+        // Get chunk of files to process concurrently
+        const chunk = remainingFiles.slice(i, i + this.maxConcurrentUploads);
+        const uploadPromises = chunk.map((file, chunkIndex) => 
+          this.uploadSingleFileAsync(file, this.currentUploadIndex + i + chunkIndex)
+        );
+        
+        // Add to active uploads for tracking
+        uploadPromises.forEach(promise => this.activeUploads.add(promise));
+        
+        // Wait for all uploads in this chunk to complete
+        await Promise.allSettled(uploadPromises);
+        
+        // Remove completed uploads from tracking
+        uploadPromises.forEach(promise => this.activeUploads.delete(promise));
+        
+        // Update current index
+        this.currentUploadIndex += chunk.length;
+        this.uploadProgress.current = this.currentUploadIndex;
+        this.saveUploadState();
+      }
+      
+      // Complete upload if not stopped
+      if (!this.uploadStopped) {
+        this.completeUpload();
+      }
+      
+    } catch (error) {
+      console.error('Upload queue processing error:', error);
+      this.snackBar.open('Upload process encountered an error', 'Close', { 
+        duration: 3000,
+        panelClass: ['error-snackbar']
+      });
+    }
+  }
+
+  private async uploadSingleFileAsync(file: File, index: number): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (this.uploadController?.signal.aborted) {
+        reject(new Error('Upload cancelled'));
+        return;
+      }
+
+      this.formService.uploadSingleFile(file).subscribe({
+        next: (result: any) => {
+          if (!this.uploadStopped) {
+            this.processedFiles.push(file.name);
+            this.uploadProgress.current = this.processedFiles.length;
+            
+            if (!result.error) {
+              this.snackBar.open(`Successfully processed ${file.name}`, 'Close', { 
+                duration: 2000, 
+                verticalPosition: 'top' 
+              });
+            } else {
+              this.snackBar.open(`Failed to process ${file.name}`, 'Close', { duration: 3000 });
+            }
+            
+            this.saveUploadState();
+          }
+          resolve();
+        },
+        error: (error: any) => {
+          console.error(`Failed to upload ${file.name}:`, error);
+          if (!this.uploadStopped) {
+            this.snackBar.open(`Failed to upload ${file.name}`, 'Close', { 
+              duration: 3000,
+              panelClass: ['error-snackbar']
+            });
+          }
+          resolve(); // Resolve even on error to continue with other files
+        }
+      });
+    });
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  setMaxConcurrentUploads(max: number) {
+    this.maxConcurrentUploads = Math.max(1, Math.min(max, 10)); // Limit between 1-10
+  }
+
   private completeUpload() {
     const successful = this.processedFiles.length;
     const total = this.uploadQueue.length;
     const failed = total - successful;
 
     if (failed === 0) {
-      this.snackBar.open(`Successfully processed all ${successful} form(s)!`, 'Close', { duration: 5000 });
+      this.snackBar.open(`Successfully processed all ${successful} form(s)!`, 'Close', { 
+        duration: 5000, 
+        verticalPosition: 'top' 
+      });
     } else {
       this.snackBar.open(`Processed ${successful} form(s), ${failed} failed.`, 'Close', { duration: 7000 });
     }
@@ -1787,15 +1907,34 @@ export class UploadComponent implements OnInit, OnChanges {
     this.snackBar.open('Upload paused', 'Close', { duration: 2000 });
   }
 
-  resumeUpload() {
+  async resumeUpload() {
     this.uploadPaused = false;
     this.saveUploadState();
-    this.snackBar.open('Upload resumed', 'Close', { duration: 2000 });
-    this.processNextFile();
+    this.snackBar.open('Upload resumed', 'Close', { 
+      duration: 2000, 
+      verticalPosition: 'top' 
+    });
+    
+    // Continue processing from where we left off
+    if (this.isUploading && !this.uploadStopped) {
+      await this.processQueueAsync();
+    }
   }
 
-  cancelUpload() {
+  async cancelUpload() {
     if (confirm('Are you sure you want to cancel the upload? Progress will be lost.')) {
+      this.uploadStopped = true;
+      
+      // Abort any ongoing HTTP requests
+      if (this.uploadController) {
+        this.uploadController.abort();
+      }
+      
+      // Wait for active uploads to complete/cancel
+      if (this.activeUploads.size > 0) {
+        await Promise.allSettled([...this.activeUploads]);
+      }
+      
       this.resetUploadState();
       this.snackBar.open('Upload cancelled', 'Close', { duration: 3000 });
     }
@@ -1804,6 +1943,7 @@ export class UploadComponent implements OnInit, OnChanges {
   private resetUploadState() {
     this.isUploading = false;
     this.uploadPaused = false;
+    this.uploadStopped = false;
     this.uploadQueue = [];
     this.processedFiles = [];
     this.currentUploadIndex = 0;
@@ -1811,6 +1951,14 @@ export class UploadComponent implements OnInit, OnChanges {
     this.validationResults = {};
     this.allValid = false;
     this.uploadProgress = { current: 0, total: 0 };
+    
+    // Clean up async resources
+    if (this.uploadController) {
+      this.uploadController.abort();
+      this.uploadController = null;
+    }
+    this.activeUploads.clear();
+    
     this.clearUploadSession();
   }
 
@@ -1823,6 +1971,7 @@ export class UploadComponent implements OnInit, OnChanges {
       const state = {
         isUploading: this.isUploading,
         uploadPaused: this.uploadPaused,
+        uploadStopped: this.uploadStopped,
         uploadQueue: this.uploadQueue.map(file => ({
           name: file.name,
           size: file.size,
