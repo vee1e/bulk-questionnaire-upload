@@ -194,21 +194,21 @@ import { FormPreviewService } from '../../services/form-preview.service';
               <div class="schema-summary">
                 <div class="schema-item">
                   <strong>Title:</strong> 
-                  <span class="title-text" [title]="parsedResults[fileName].title?.default || 'N/A'">
-                    {{parsedResults[fileName].title?.default || 'N/A'}}
+                  <span class="title-text" [title]="getFormTitle(parsedResults[fileName])">
+                    {{getFormTitle(parsedResults[fileName])}}
                   </span>
                 </div>
                 <div class="schema-item">
-                  <strong>Language:</strong> {{parsedResults[fileName].language}}
+                  <strong>Language:</strong> {{getFormLanguage(parsedResults[fileName])}}
                 </div>
                 <div class="schema-item">
-                  <strong>Questions:</strong> {{parsedResults[fileName].metadata?.questions_count || 0}}
+                  <strong>Questions:</strong> {{getFormQuestionsCount(parsedResults[fileName])}}
                 </div>
                 <div class="schema-item">
-                  <strong>Options:</strong> {{parsedResults[fileName].metadata?.options_count || 0}}
+                  <strong>Options:</strong> {{getFormOptionsCount(parsedResults[fileName])}}
                 </div>
                 <div class="schema-item">
-                  <strong>Parse Time:</strong> {{parsedResults[fileName].metadata?.parse_time?.toFixed(3) || 0}}s
+                  <strong>Version:</strong> {{getFormVersion(parsedResults[fileName])}}
                 </div>
               </div>
               <div class="schema-actions">
@@ -347,50 +347,50 @@ import { FormPreviewService } from '../../services/form-preview.service';
             <div class="schema-info-grid">
               <div class="info-item">
                 <strong>Title:</strong> 
-                <span>{{selectedSchema?.title?.default || 'N/A'}}</span>
+                <span>{{getFormTitle(selectedSchema)}}</span>
               </div>
               <div class="info-item">
                 <strong>Language:</strong> 
-                <span>{{selectedSchema?.language || 'N/A'}}</span>
+                <span>{{getFormLanguage(selectedSchema)}}</span>
               </div>
               <div class="info-item">
                 <strong>Version:</strong> 
-                <span>{{selectedSchema?.version || 'N/A'}}</span>
+                <span>{{getFormVersion(selectedSchema)}}</span>
               </div>
               <div class="info-item">
                 <strong>Questions:</strong> 
-                <span>{{selectedSchema?.metadata?.questions_count || 0}}</span>
+                <span>{{getFormQuestionsCount(selectedSchema)}}</span>
               </div>
               <div class="info-item">
                 <strong>Options:</strong> 
-                <span>{{selectedSchema?.metadata?.options_count || 0}}</span>
+                <span>{{getFormOptionsCount(selectedSchema)}}</span>
               </div>
               <div class="info-item">
-                <strong>Parse Time:</strong> 
-                <span>{{selectedSchema?.metadata?.parse_time?.toFixed(3) || 0}}s</span>
+                <strong>Form ID:</strong> 
+                <span>{{getFormId(selectedSchema)}}</span>
               </div>
             </div>
           </div>
 
-          <div class="schema-section" *ngIf="selectedSchema?.groups && selectedSchema?.groups.length > 0">
+          <div class="schema-section" *ngIf="getFormQuestions(selectedSchema).length > 0">
             <h4>
               <mat-icon class="section-icon">quiz</mat-icon>
               Questions Structure
             </h4>
             <div class="questions-container">
-              <div *ngFor="let group of selectedSchema.groups" class="question-group">
-                <h5 class="group-title">{{group.label?.default || 'Default Group'}}</h5>
-                <div *ngFor="let question of group.questions" class="question-item">
+              <div class="question-group">
+                <h5 class="group-title">Form Questions</h5>
+                <div *ngFor="let question of getFormQuestions(selectedSchema)" class="question-item">
                   <div class="question-header">
-                    <span class="question-name">#{{question.name}}</span>
-                    <span class="question-type">{{question.type}}</span>
+                    <span class="question-name">#{{question.order}}</span>
+                    <span class="question-type">Type {{question.input_type}}</span>
                   </div>
-                  <div class="question-label">{{question.label?.default}}</div>
-                  <div *ngIf="question.choices && question.choices.length > 0" class="question-choices">
-                    <div class="choice-header">Choices:</div>
-                    <div *ngFor="let choice of question.choices" class="choice-item">
-                      <span class="choice-name">{{choice.name}}</span>
-                      <span class="choice-label">{{choice.label?.default}}</span>
+                  <div class="question-label">{{question.title}}</div>
+                  <div *ngIf="question.answer_option && question.answer_option.length > 0" class="question-choices">
+                    <div class="choice-header">Options:</div>
+                    <div *ngFor="let option of question.answer_option" class="choice-item">
+                      <span class="choice-name">{{option._id}}</span>
+                      <span class="choice-label">{{option.name}}</span>
                     </div>
                   </div>
                 </div>
@@ -1962,8 +1962,10 @@ export class UploadComponent implements OnInit, OnChanges {
     this.loadingFormId = form.id;
     this.formPreviewService.setLoadingFormId(form.id);
     this.formService.getFormById(form.id).subscribe({
-      next: (response: FormDetails) => {
-        this.formPreviewService.setSelectedFormDetails(response);
+      next: (response: any) => {
+        // Convert tempData.json format to FormDetails format
+        const formDetails = this.convertTempDataToFormDetails(response, form);
+        this.formPreviewService.setSelectedFormDetails(formDetails);
         this.loadingFormId = null;
       },
       error: (error: any) => {
@@ -2333,6 +2335,217 @@ export class UploadComponent implements OnInit, OnChanges {
 
   getParsedResultKeys(): string[] {
     return Object.keys(this.parsedResults);
+  }
+
+  // Helper methods to extract data from tempData.json format
+  getFormTitle(schema: any): string {
+    if (!schema) return 'N/A';
+    
+    // Handle tempData.json format (array)
+    if (Array.isArray(schema) && schema.length > 0) {
+      const formDef = schema[0];
+      if (formDef.language && Array.isArray(formDef.language) && formDef.language.length > 0) {
+        return formDef.language[0].title || 'N/A';
+      }
+    }
+    
+    // Handle old format (fallback)
+    if (schema.title?.default) {
+      return schema.title.default;
+    }
+    
+    return 'N/A';
+  }
+
+  getFormLanguage(schema: any): string {
+    if (!schema) return 'N/A';
+    
+    // Handle tempData.json format (array)
+    if (Array.isArray(schema) && schema.length > 0) {
+      const formDef = schema[0];
+      
+      // First try the string language field
+      if (typeof formDef.language === 'string') {
+        return formDef.language;
+      }
+      
+      // If language is an array, get from the first language config
+      if (Array.isArray(formDef.language) && formDef.language.length > 0) {
+        return formDef.language[0].lng || 'N/A';
+      }
+      
+      return 'N/A';
+    }
+    
+    // Handle old format (fallback)
+    return schema.language || 'N/A';
+  }
+
+  getFormVersion(schema: any): string {
+    if (!schema) return 'N/A';
+    
+    // Handle tempData.json format (array)
+    if (Array.isArray(schema) && schema.length > 0) {
+      const formDef = schema[0];
+      return formDef.version || 'N/A';
+    }
+    
+    // Handle old format (fallback)
+    return schema.version || 'N/A';
+  }
+
+  getFormQuestionsCount(schema: any): number {
+    if (!schema) return 0;
+    
+    // Handle tempData.json format (array)
+    if (Array.isArray(schema) && schema.length > 0) {
+      const formDef = schema[0];
+      if (formDef.question && Array.isArray(formDef.question)) {
+        return formDef.question.length;
+      }
+    }
+    
+    // Handle old format (fallback)
+    if (schema.metadata?.questions_count) {
+      return schema.metadata.questions_count;
+    }
+    
+    return 0;
+  }
+
+  getFormOptionsCount(schema: any): number {
+    if (!schema) return 0;
+    
+    // Handle tempData.json format (array)
+    if (Array.isArray(schema) && schema.length > 0) {
+      const formDef = schema[0];
+      if (formDef.language && Array.isArray(formDef.language) && formDef.language.length > 0) {
+        const langConfig = formDef.language[0];
+        if (langConfig.question && Array.isArray(langConfig.question)) {
+          let optionsCount = 0;
+          langConfig.question.forEach((q: any) => {
+            if (q.answer_option && Array.isArray(q.answer_option)) {
+              optionsCount += q.answer_option.length;
+            }
+          });
+          return optionsCount;
+        }
+      }
+    }
+    
+    // Handle old format (fallback)
+    if (schema.metadata?.options_count) {
+      return schema.metadata.options_count;
+    }
+    
+    return 0;
+  }
+
+  getFormId(schema: any): string {
+    if (!schema) return 'N/A';
+    
+    // Handle tempData.json format (array)
+    if (Array.isArray(schema) && schema.length > 0) {
+      const formDef = schema[0];
+      return formDef.formId?.toString() || 'N/A';
+    }
+    
+    // Handle old format (fallback)
+    return schema.id || 'N/A';
+  }
+
+  getFormQuestions(schema: any): any[] {
+    if (!schema) return [];
+    
+    // Handle tempData.json format (array)
+    if (Array.isArray(schema) && schema.length > 0) {
+      const formDef = schema[0];
+      if (formDef.language && Array.isArray(formDef.language) && formDef.language.length > 0) {
+        const langConfig = formDef.language[0];
+        if (langConfig.question && Array.isArray(langConfig.question)) {
+          return langConfig.question;
+        }
+      }
+    }
+    
+    // Handle old format (fallback)
+    if (schema.groups && Array.isArray(schema.groups)) {
+      let allQuestions: any[] = [];
+      schema.groups.forEach((group: any) => {
+        if (group.questions && Array.isArray(group.questions)) {
+          allQuestions = allQuestions.concat(group.questions);
+        }
+      });
+      return allQuestions;
+    }
+    
+    return [];
+  }
+
+  convertTempDataToFormDetails(tempDataResponse: any, originalForm: FormData): any {
+    if (!Array.isArray(tempDataResponse) || tempDataResponse.length === 0) {
+      // Fallback to basic structure
+      return {
+        form: originalForm,
+        questions: [],
+        options: [],
+        questions_count: 0,
+        options_count: 0
+      };
+    }
+
+    const formDef = tempDataResponse[0];
+    
+    // Extract questions from the detailed definition
+    const questions: any[] = [];
+    const options: any[] = [];
+    
+    if (formDef.language && Array.isArray(formDef.language) && formDef.language.length > 0) {
+      const langConfig = formDef.language[0];
+      if (langConfig.question && Array.isArray(langConfig.question)) {
+        langConfig.question.forEach((q: any, index: number) => {
+          // Convert to expected question format
+          questions.push({
+            id: q._id || `q_${index}`,
+            form_id: originalForm.id,
+            order: parseInt(q.order) || index + 1,
+            title: q.title || 'Untitled Question',
+            view_sequence: parseInt(q.viewSequence) || index + 1,
+            input_type: parseInt(q.input_type) || 1,
+            created_at: new Date().toISOString()
+          });
+
+          // Extract options
+          if (q.answer_option && Array.isArray(q.answer_option)) {
+            q.answer_option.forEach((opt: any) => {
+              options.push({
+                id: opt._id || `opt_${opt._id}`,
+                form_id: originalForm.id,
+                order: parseInt(q.order) || index + 1,
+                option_id: parseInt(opt._id) || 1,
+                label: opt.name || 'Untitled Option',
+                created_at: new Date().toISOString()
+              });
+            });
+          }
+        });
+      }
+    }
+
+    // Create FormDetails structure
+    return {
+      form: {
+        id: originalForm.id,
+        title: this.getFormTitle(tempDataResponse),
+        language: this.getFormLanguage(tempDataResponse),
+        version: this.getFormVersion(tempDataResponse),
+        created_at: originalForm.created_at
+      },
+      questions: questions,
+      options: options,
+      questions_count: questions.length,
+      options_count: options.length
+    };
   }
 
   closeSchemaModal(): void {

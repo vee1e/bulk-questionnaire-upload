@@ -102,8 +102,8 @@ export class FormService {
         return this.http.get<FormsResponse>(`${this.apiUrl}/forms`);
     }
 
-    getFormById(formId: string): Observable<FormDetails> {
-        return this.http.get<FormDetails>(`${this.apiUrl}/forms/${formId}`);
+    getFormById(formId: string): Observable<any> {
+        return this.http.get<any>(`${this.apiUrl}/forms/${formId}`);
     }
 
     deleteForm(formId: string): Observable<{ message: string }> {

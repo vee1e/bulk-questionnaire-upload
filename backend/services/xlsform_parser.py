@@ -1187,7 +1187,7 @@ class XLSFormParser:
             # References
             'mainFormId': None,
             'filterFormId': None,
-            'copiedFormId': int(form.get('id', 125)),  # Use current form ID as copied from
+            'copiedFormId': 125,  # Default copied form ID
             
             # Arrays
             'filterDataBy': ['GEOGRAPHY'],
@@ -1442,7 +1442,7 @@ class XLSFormParser:
         form_definition = {
             "_id": f"ObjectId(\"{self._generate_object_id()}\")",
             "formUiniqueId": f"ObjectId(\"{form.get('id', self._generate_object_id())}\")",
-            "formId": int(form.get('id', 848)),
+            "formId": 848,  # Default form ID
             "parentResponseId": None,
             "groupResponseId": None,
             "transactionId": str(uuid.uuid4()),

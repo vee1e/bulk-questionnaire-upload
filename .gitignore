@@ -22,3 +22,4 @@ dist/
 project-plans/
 .DS_Store
 .cursorrules
+tempData.json
