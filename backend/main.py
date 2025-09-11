@@ -78,7 +78,7 @@ async def validate_file(file: UploadFile = File(...)):
 @app.post("/api/forms/parse")
 async def parse_file(request: Request):
     """
-    Parse the uploaded Excel file and return JSON schema without saving to database
+    Parse the uploaded Excel file and return tempData.json format without saving to database
     """
     form = await request.form()
     file_field = form.get('file')
@@ -427,7 +427,7 @@ async def get_all_forms():
 @app.get("/api/forms/{form_id}")
 async def get_form_by_id(form_id: str):
     """
-    Get a specific form by ID
+    Get a specific form by ID and return in tempData.json format
     """
     try:
         form = await db_service.get_form_by_id(form_id)
@@ -437,13 +437,11 @@ async def get_form_by_id(form_id: str):
         questions = await db_service.get_questions_by_form_id(form_id)
         options = await db_service.get_options_by_form_id(form_id)
 
-        return {
-            "form": form,
-            "questions": questions,
-            "options": options,
-            "questions_count": len(questions),
-            "options_count": len(options)
-        }
+        # Convert database format to tempData.json format
+        parser = XLSFormParser()
+        temp_data_format = parser._convert_db_to_temp_data_format(form, questions, options)
+        
+        return temp_data_format
     except HTTPException:
         raise
     except Exception as e:

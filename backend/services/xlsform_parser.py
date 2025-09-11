@@ -20,6 +20,17 @@ def log_metric(metric_name, value):
 class XLSFormParser:
     REQUIRED_SHEETS = ['Forms', 'Questions Info', 'Answer Options']
     REQUIRED_FORMS_COLUMNS = ['Language', 'Title']
+    OPTIONAL_FORMS_COLUMNS = [
+        'Version', 'Project Order', 'Village Order', 'Block Order', 'District Order', 
+        'Gram Panchayat Order', 'Hamlet Order', 'Has Census', 'Is Active', 'Is Bulk Upload Draft',
+        'Is Bulk Upload Response', 'Is Custom Label', 'Is Dashboard Disable', 'Is Draft Disable',
+        'Is Dynamic Card', 'Is Livelihood', 'Is Master', 'Is Media', 'Is Online', 
+        'Is Resource Repository', 'Is View Only', 'Is Visible To All', 'Is Preview Enabled',
+        'Hide All Label', 'Main Form Id', 'Filter Data By', 'Filter Form Id',
+        'Allow Preview Download', 'Parallel Import Call', 'Error Management Status',
+        'Copied Form Id', 'Data Migrated', 'Enable Asr', 'Enable Tts', 'Is Auto Calculate',
+        'Is Reference Data', 'Is Reset For Review Edit', 'Offline Review Edit'
+    ]
     REQUIRED_QUESTIONS_COLUMNS = ['Order', 'Title', 'View Sequence', 'Input Type']
     REQUIRED_OPTIONS_COLUMNS = ['Order', 'Id', 'Label']
 
@@ -634,7 +645,7 @@ class XLSFormParser:
             await file.seek(0)
 
     async def parse_file_only(self, file: UploadFile) -> Dict[str, Any]:
-        """Parse Excel file and return JSON schema without saving to database"""
+        """Parse Excel file and return JSON schema in tempData.json format without saving to database"""
         start_all = time.time()
         try:
             # Step 1: Read Excel file
@@ -848,51 +859,24 @@ class XLSFormParser:
             try:
                 options_data = self._parse_options_data(options_df)
                 logger.info(f"Parsed {len(options_data)} options")
-                if not options_data:
-                    raise Exception("No valid options found. Check that the 'Answer Options' sheet has data with proper Order, Id, and Label values.")
             except Exception as e:
                 raise Exception(f"Failed to parse options from 'Answer Options' sheet: {str(e)}. Check data types: Order and Id should be integers, Label should be text.")
 
-            # Step 7: Build structured form schema
+            # Step 7: Build tempData.json format
             try:
-                form_title = self._get_form_title(forms_df)
-                form_version = '1.0.0'
-                groups = self._parse_questions(questions_df, options_df)
-                logger.info(f"Built form schema with {len(groups)} groups")
+                temp_data_format = self._build_temp_data_format(forms_df, questions_df, options_df)
+                logger.info(f"Built tempData format with form definition")
             except Exception as e:
-                raise Exception(f"Failed to build form schema: {str(e)}. This may be due to data inconsistencies between questions and options.")
+                raise Exception(f"Failed to build tempData format: {str(e)}. This may be due to data inconsistencies between questions and options.")
 
             total_time = time.time() - start_all
             log_metric('parse_only_time', total_time)
 
-            # Step 8: Construct response
-            available_sheets = list(df_dict.keys())
-            return {
-                'id': None,  # No ID since not saved
-                'title': form_title,
-                'version': form_version,
-                'language': form_metadata.get('language', 'en'),
-                'groups': [group.model_dump() for group in groups],
-                'settings': None,
-                'metadata': {
-                    'questions_count': len(questions_data),
-                    'options_count': len(options_data),
-                    'parse_time': total_time,
-                    'created_at': form_metadata.get('created_at'),
-                    'sheets_found': available_sheets,
-                    'file_name': file.filename,
-                    'validation_warnings': all_warnings
-                },
-                'raw_data': {
-                    'form_metadata': form_metadata,
-                    'questions': questions_data,
-                    'options': options_data
-                }
-            }
+            return temp_data_format
 
         except Exception as e:
             logger.error(f"Error parsing file {file.filename}: {str(e)}")
-            raise  # Re-raise the exception with the detailed message
+            raise
         finally:
             await file.seek(0)
 
@@ -996,4 +980,687 @@ class XLSFormParser:
             ]
 
         return Question(**question_data)
+
+    def _generate_object_id(self) -> str:
+        """Generate a mock ObjectId string for the tempData format"""
+        import random
+        import string
+        return ''.join(random.choices(string.ascii_lowercase + string.digits, k=24))
+
+    def _extract_form_config(self, forms_df: pd.DataFrame) -> Dict[str, Any]:
+        """Extract form configuration from Forms sheet with sensible defaults"""
+        config = {
+            # Basic metadata
+            'title': 'Untitled Form',
+            'language': 'en',
+            'version': '1',
+            
+            # Order settings
+            'projectOrder': 0,
+            'villageOrder': 5,
+            'blockOrder': 3,
+            'districtOrder': 2,
+            'gramPanchayatOrder': 4,
+            'hamletOrder': 0,
+            
+            # Feature flags
+            'hasCensus': False,
+            'isActive': True,
+            'isBulkUploadDraft': False,
+            'isBulkUploadResponse': True,
+            'isCustomLabel': True,
+            'isDashboardDisable': False,
+            'isDraftDisable': False,
+            'isDynamicCard': False,
+            'isLivelihood': True,
+            'isMaster': False,
+            'isMedia': False,
+            'isOnline': False,
+            'isResourceRepository': False,
+            'isViewOnly': False,
+            'isVisibleToAll': False,
+            'isPreviewEnabled': True,
+            'hideAllLabel': False,
+            'allowPreviewDownload': False,
+            'parallelImportCall': True,
+            'errorManagementStatus': True,
+            'dataMigrated': False,
+            'enableAsr': False,
+            'enableTts': False,
+            'isAutoCalculate': False,
+            'isReferenceData': False,
+            'isResetForReviewEdit': False,
+            'offlineReviewEdit': False,
+            
+            # References
+            'mainFormId': None,
+            'filterFormId': None,
+            'copiedFormId': 125,
+            
+            # Arrays
+            'filterDataBy': ['GEOGRAPHY'],
+            'tags': []
+        }
+        
+        if not forms_df.empty:
+            first_row = forms_df.iloc[0]
+            
+            # Extract basic metadata
+            if 'Title' in forms_df.columns and pd.notna(first_row['Title']):
+                config['title'] = str(first_row['Title']).strip()
+            if 'Language' in forms_df.columns and pd.notna(first_row['Language']):
+                config['language'] = str(first_row['Language']).strip().lower()
+            if 'Version' in forms_df.columns and pd.notna(first_row['Version']):
+                config['version'] = str(first_row['Version']).strip()
+            
+            # Extract order settings
+            order_mappings = {
+                'Project Order': 'projectOrder',
+                'Village Order': 'villageOrder',
+                'Block Order': 'blockOrder',
+                'District Order': 'districtOrder',
+                'Gram Panchayat Order': 'gramPanchayatOrder',
+                'Hamlet Order': 'hamletOrder'
+            }
+            
+            for excel_col, config_key in order_mappings.items():
+                if excel_col in forms_df.columns and pd.notna(first_row[excel_col]):
+                    try:
+                        config[config_key] = int(first_row[excel_col])
+                    except (ValueError, TypeError):
+                        pass  # Keep default value
+            
+            # Extract boolean flags
+            boolean_mappings = {
+                'Has Census': 'hasCensus',
+                'Is Active': 'isActive',
+                'Is Bulk Upload Draft': 'isBulkUploadDraft',
+                'Is Bulk Upload Response': 'isBulkUploadResponse',
+                'Is Custom Label': 'isCustomLabel',
+                'Is Dashboard Disable': 'isDashboardDisable',
+                'Is Draft Disable': 'isDraftDisable',
+                'Is Dynamic Card': 'isDynamicCard',
+                'Is Livelihood': 'isLivelihood',
+                'Is Master': 'isMaster',
+                'Is Media': 'isMedia',
+                'Is Online': 'isOnline',
+                'Is Resource Repository': 'isResourceRepository',
+                'Is View Only': 'isViewOnly',
+                'Is Visible To All': 'isVisibleToAll',
+                'Is Preview Enabled': 'isPreviewEnabled',
+                'Hide All Label': 'hideAllLabel',
+                'Allow Preview Download': 'allowPreviewDownload',
+                'Parallel Import Call': 'parallelImportCall',
+                'Error Management Status': 'errorManagementStatus',
+                'Data Migrated': 'dataMigrated',
+                'Enable Asr': 'enableAsr',
+                'Enable Tts': 'enableTts',
+                'Is Auto Calculate': 'isAutoCalculate',
+                'Is Reference Data': 'isReferenceData',
+                'Is Reset For Review Edit': 'isResetForReviewEdit',
+                'Offline Review Edit': 'offlineReviewEdit'
+            }
+            
+            for excel_col, config_key in boolean_mappings.items():
+                if excel_col in forms_df.columns and pd.notna(first_row[excel_col]):
+                    value = str(first_row[excel_col]).strip().lower()
+                    if value in ['true', '1', 'yes', 'y']:
+                        config[config_key] = True
+                    elif value in ['false', '0', 'no', 'n']:
+                        config[config_key] = False
+            
+            # Extract reference IDs
+            reference_mappings = {
+                'Main Form Id': 'mainFormId',
+                'Filter Form Id': 'filterFormId',
+                'Copied Form Id': 'copiedFormId'
+            }
+            
+            for excel_col, config_key in reference_mappings.items():
+                if excel_col in forms_df.columns and pd.notna(first_row[excel_col]):
+                    try:
+                        value = first_row[excel_col]
+                        if pd.notna(value) and str(value).strip():
+                            config[config_key] = int(value) if str(value).isdigit() else str(value).strip()
+                    except (ValueError, TypeError):
+                        pass  # Keep default value
+            
+            # Extract filter data by (comma-separated list)
+            if 'Filter Data By' in forms_df.columns and pd.notna(first_row['Filter Data By']):
+                filter_by_str = str(first_row['Filter Data By']).strip()
+                if filter_by_str:
+                    config['filterDataBy'] = [item.strip().upper() for item in filter_by_str.split(',')]
+            
+            # Extract tags (comma-separated list)
+            if 'Tags' in forms_df.columns and pd.notna(first_row['Tags']):
+                tags_str = str(first_row['Tags']).strip()
+                if tags_str:
+                    config['tags'] = [item.strip() for item in tags_str.split(',')]
+        
+        return config
+
+    def _extract_db_form_config(self, form: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract form configuration from database form data with sensible defaults"""
+        config = {
+            # Basic metadata
+            'title': form.get('title', 'Untitled Form'),
+            'language': form.get('language', 'en'),
+            'version': str(form.get('version', '1')),
+            
+            # Order settings (use sensible defaults since DB forms don't store these)
+            'projectOrder': 0,
+            'villageOrder': 5,
+            'blockOrder': 3,
+            'districtOrder': 2,
+            'gramPanchayatOrder': 4,
+            'hamletOrder': 0,
+            
+            # Feature flags (sensible defaults)
+            'hasCensus': False,
+            'isActive': True,
+            'isBulkUploadDraft': False,
+            'isBulkUploadResponse': True,
+            'isCustomLabel': True,
+            'isDashboardDisable': False,
+            'isDraftDisable': False,
+            'isDynamicCard': False,
+            'isLivelihood': True,
+            'isMaster': False,
+            'isMedia': False,
+            'isOnline': False,
+            'isResourceRepository': False,
+            'isViewOnly': False,
+            'isVisibleToAll': False,
+            'isPreviewEnabled': True,
+            'hideAllLabel': False,
+            'allowPreviewDownload': False,
+            'parallelImportCall': True,
+            'errorManagementStatus': True,
+            'dataMigrated': False,
+            'enableAsr': False,
+            'enableTts': False,
+            'isAutoCalculate': False,
+            'isReferenceData': False,
+            'isResetForReviewEdit': False,
+            'offlineReviewEdit': False,
+            
+            # References
+            'mainFormId': None,
+            'filterFormId': None,
+            'copiedFormId': int(form.get('id', 125)),  # Use current form ID as copied from
+            
+            # Arrays
+            'filterDataBy': ['GEOGRAPHY'],
+            'tags': []
+        }
+        
+        return config
+
+    def _build_temp_data_format(self, forms_df: pd.DataFrame, questions_df: pd.DataFrame, options_df: pd.DataFrame) -> List[Dict[str, Any]]:
+        """Build the tempData.json format structure"""
+        from datetime import datetime, timezone
+        import pandas as pd
+        
+        # Extract form configuration from Forms sheet
+        config = self._extract_form_config(forms_df)
+        
+        # Build the form definition object (similar to Object 2 in tempData.json)
+        form_definition = {
+            "_id": f"ObjectId(\"{self._generate_object_id()}\")",
+            "formUiniqueId": f"ObjectId(\"{self._generate_object_id()}\")",
+            "formId": 848,
+            "parentResponseId": None,
+            "groupResponseId": None,
+            "transactionId": str(uuid.uuid4()),
+            "forParentValue": None,
+            "uniqueId": f"generated_form_{int(datetime.now().timestamp())}",
+            "userId": f"ObjectId(\"{self._generate_object_id()}\")",
+            "partner": f"ObjectId(\"{self._generate_object_id()}\")",
+            "project": f"ObjectId(\"{self._generate_object_id()}\")",
+            "loginId": f"ObjectId(\"{self._generate_object_id()}\")",
+            "version": config['version'],
+            "dataMigrated": config['dataMigrated'],
+            "hamlet": None,
+            "village": f"ObjectId(\"{self._generate_object_id()}\")",
+            "gramPanchayat": f"ObjectId(\"{self._generate_object_id()}\")",
+            "block": f"ObjectId(\"{self._generate_object_id()}\")",
+            "district": f"ObjectId(\"{self._generate_object_id()}\")",
+            "state": f"ObjectId(\"{self._generate_object_id()}\")",
+            "location": {
+                "lat": "0.0",
+                "lng": "0.0",
+                "accuracy": "0.0"
+            },
+            "language": config['language'],
+            "backgroundVoice": None,
+            "question": self._build_response_questions(questions_df, options_df),
+            "responseUpdateHistory": [],
+            "appVersion": "2.5.3",
+            "responseIds": [],
+            "mobileCreatedAt": f"ISODate(\"{datetime.now(timezone.utc).isoformat()}\")",
+            "createdAt": f"ISODate(\"{datetime.now(timezone.utc).isoformat()}\")",
+            "updatedAt": f"ISODate(\"{datetime.now(timezone.utc).isoformat()}\")",
+            "blockOrder": config['blockOrder'],
+            "districtOrder": config['districtOrder'],
+            "gramPanchayatOrder": config['gramPanchayatOrder'],
+            "hamletOrder": config['hamletOrder'],
+            "hasCensus": config['hasCensus'],
+            "hooks": [],
+            "isActive": config['isActive'],
+            "isBulkUploadDraft": config['isBulkUploadDraft'],
+            "isBulkUploadResponse": config['isBulkUploadResponse'],
+            "isCustomLabel": config['isCustomLabel'],
+            "isDashboardDisable": config['isDashboardDisable'],
+            "isDraftDisable": config['isDraftDisable'],
+            "isDynamicCard": config['isDynamicCard'],
+            "isLivelihood": config['isLivelihood'],
+            "isMaster": config['isMaster'],
+            "isMedia": config['isMedia'],
+            "isOnline": config['isOnline'],
+            "isResourceRepository": config['isResourceRepository'],
+            "isViewOnly": config['isViewOnly'],
+            "isVisibleToAll": config['isVisibleToAll'],
+            "keyInfoOrders": self._get_key_info_orders(questions_df),
+            "language": [
+                {
+                    "lng": config['language'],
+                    "title": config['title'],
+                    "buttons": [],
+                    "question": self._build_form_questions(questions_df, options_df)
+                }
+            ],
+            "syncStatus": {
+                "groupBy": "5",
+                "filterBy": config['filterDataBy'],
+                "conditions": [],
+                "questions": self._build_sync_questions(questions_df),
+                "_id": f"ObjectId(\"{self._generate_object_id()}\")"
+            },
+            "version": config['version'],
+            "villageOrder": config['villageOrder'],
+            "googleSheet": {},
+            "actions": [],
+            "isPreviewEnabled": config['isPreviewEnabled'],
+            "projects": [],
+            "hideAllLabel": config['hideAllLabel'],
+            "mainFormId": config['mainFormId'],
+            "projectOrder": config['projectOrder'],
+            "filterDataBy": config['filterDataBy'],
+            "filterFormId": config['filterFormId'],
+            "maskingConfig": [],
+            "encryptedQuestions": [],
+            "allowPreviewDownload": config['allowPreviewDownload'],
+            "parallelImportCall": config['parallelImportCall'],
+            "errorManagementStatus": config['errorManagementStatus'],
+            "searchOrders": [],
+            "copiedFormId": config['copiedFormId'],
+            "dataMigrated": config['dataMigrated'],
+            "enableAsr": config['enableAsr'],
+            "enableTts": config['enableTts'],
+            "isAutoCalculate": config['isAutoCalculate'],
+            "isReferenceData": config['isReferenceData'],
+            "isResetForReviewEdit": config['isResetForReviewEdit'],
+            "metaDataConfig": [],
+            "offlineReviewEdit": config['offlineReviewEdit'],
+            "tags": config['tags']
+        }
+        
+        return [form_definition]
+
+    def _build_response_questions(self, questions_df: pd.DataFrame, options_df: pd.DataFrame) -> List[Dict[str, Any]]:
+        """Build question array for response format (Object 1 style)"""
+        questions = []
+        
+        for _, row in questions_df.iterrows():
+            order = str(row['Order'])
+            input_type = str(row['Input Type'])
+            
+            # Get matching options for this question
+            matching_options = options_df[options_df['Order'] == int(order)]
+            answer_data = []
+            initial_answer_data = []
+            
+            if not matching_options.empty:
+                # Use first option as default answer for choice questions
+                first_option = matching_options.iloc[0]
+                answer_data = [{
+                    "value": str(first_option['Id']),
+                    "label": str(first_option['Label']),
+                    "_id": f"ObjectId(\"{self._generate_object_id()}\")"
+                }]
+                initial_answer_data = [{
+                    "value": str(first_option['Id']),
+                    "label": str(first_option['Label']),
+                    "_id": f"ObjectId(\"{self._generate_object_id()}\")"
+                }]
+            
+            question = {
+                "order": order,
+                "input_type": input_type,
+                "answer": answer_data,
+                "intialAnswer": initial_answer_data,
+                "history": [],
+                "nestedAnswer": [],
+                "_id": f"ObjectId(\"{self._generate_object_id()}\")"
+            }
+            questions.append(question)
+        
+        return questions
+
+    def _build_form_questions(self, questions_df: pd.DataFrame, options_df: pd.DataFrame) -> List[Dict[str, Any]]:
+        """Build detailed question definitions for form language section"""
+        questions = []
+        
+        for _, row in questions_df.iterrows():
+            order = str(row['Order'])
+            input_type = str(row['Input Type'])
+            title = str(row['Title'])
+            view_sequence = str(row.get('View Sequence', order))
+            
+            # Get matching options for this question
+            matching_options = options_df[options_df['Order'] == int(order)]
+            answer_options = []
+            
+            if not matching_options.empty:
+                for _, option_row in matching_options.iterrows():
+                    answer_options.append({
+                        "_id": str(option_row['Id']),
+                        "name": str(option_row['Label']),
+                        "shortKey": "",
+                        "visibility": None,
+                        "did": [],
+                        "viewSequence": str(option_row['Id']),
+                        "coordinates": []
+                    })
+            
+            question = {
+                "order": order,
+                "label": order,
+                "title": title,
+                "shortKey": f"question_{order}",
+                "information": "",
+                "viewSequence": view_sequence,
+                "input_type": input_type,
+                "validation": [
+                    {
+                        "_id": "1",
+                        "error_msg": "",
+                        "condition": None
+                    }
+                ],
+                "answer_option": answer_options,
+                "restrictions": [],
+                "child": [],
+                "parent": [],
+                "hint": "",
+                "error_msg": "",
+                "resource_urls": [],
+                "editable": False,
+                "weightage": [],
+                "_id": f"ObjectId(\"{self._generate_object_id()}\")"
+            }
+            questions.append(question)
+        
+        return questions
+
+    def _build_sync_questions(self, questions_df: pd.DataFrame) -> List[Dict[str, Any]]:
+        """Build sync status questions configuration"""
+        sync_questions = []
+        
+        for _, row in questions_df.iterrows():
+            order = str(row['Order'])
+            
+            sync_question = {
+                "order": order,
+                "key": f"order{order}",
+                "clear": False,
+                "edit": True,
+                "setDefault": None,
+                "_id": f"ObjectId(\"{self._generate_object_id()}\")"
+            }
+            sync_questions.append(sync_question)
+        
+        return sync_questions
+
+    def _get_key_info_orders(self, questions_df: pd.DataFrame) -> List[str]:
+        """Get key info orders from questions (first few questions typically)"""
+        orders = []
+        for _, row in questions_df.iterrows():
+            orders.append(str(row['Order']))
+            if len(orders) >= 7:  # Limit to first 7 as seen in tempData.json
+                break
+        return orders
+
+    def _convert_db_to_temp_data_format(self, form: Dict[str, Any], questions: List[Dict[str, Any]], options: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Convert database format (form, questions, options) to tempData.json format"""
+        from datetime import datetime, timezone
+        
+        # Extract configuration with sensible defaults (database forms have limited metadata)
+        config = self._extract_db_form_config(form)
+        
+        # Build the form definition object (similar to Object 2 in tempData.json)
+        form_definition = {
+            "_id": f"ObjectId(\"{self._generate_object_id()}\")",
+            "formUiniqueId": f"ObjectId(\"{form.get('id', self._generate_object_id())}\")",
+            "formId": int(form.get('id', 848)),
+            "parentResponseId": None,
+            "groupResponseId": None,
+            "transactionId": str(uuid.uuid4()),
+            "forParentValue": None,
+            "uniqueId": f"db_form_{form.get('id', 'unknown')}_{int(datetime.now().timestamp())}",
+            "userId": f"ObjectId(\"{self._generate_object_id()}\")",
+            "partner": f"ObjectId(\"{self._generate_object_id()}\")",
+            "project": f"ObjectId(\"{self._generate_object_id()}\")",
+            "loginId": f"ObjectId(\"{self._generate_object_id()}\")",
+            "version": config['version'],
+            "dataMigrated": config['dataMigrated'],
+            "hamlet": None,
+            "village": f"ObjectId(\"{self._generate_object_id()}\")",
+            "gramPanchayat": f"ObjectId(\"{self._generate_object_id()}\")",
+            "block": f"ObjectId(\"{self._generate_object_id()}\")",
+            "district": f"ObjectId(\"{self._generate_object_id()}\")",
+            "state": f"ObjectId(\"{self._generate_object_id()}\")",
+            "location": {
+                "lat": "0.0",
+                "lng": "0.0",
+                "accuracy": "0.0"
+            },
+            "language": config['language'],
+            "backgroundVoice": None,
+            "question": self._build_response_questions_from_db(questions, options),
+            "responseUpdateHistory": [],
+            "appVersion": "2.5.3",
+            "responseIds": [],
+            "mobileCreatedAt": f"ISODate(\"{form.get('created_at', datetime.now(timezone.utc).isoformat())}\")",
+            "createdAt": f"ISODate(\"{form.get('created_at', datetime.now(timezone.utc).isoformat())}\")",
+            "updatedAt": f"ISODate(\"{datetime.now(timezone.utc).isoformat()}\")",
+            "blockOrder": config['blockOrder'],
+            "districtOrder": config['districtOrder'],
+            "gramPanchayatOrder": config['gramPanchayatOrder'],
+            "hamletOrder": config['hamletOrder'],
+            "hasCensus": config['hasCensus'],
+            "hooks": [],
+            "isActive": config['isActive'],
+            "isBulkUploadDraft": config['isBulkUploadDraft'],
+            "isBulkUploadResponse": config['isBulkUploadResponse'],
+            "isCustomLabel": config['isCustomLabel'],
+            "isDashboardDisable": config['isDashboardDisable'],
+            "isDraftDisable": config['isDraftDisable'],
+            "isDynamicCard": config['isDynamicCard'],
+            "isLivelihood": config['isLivelihood'],
+            "isMaster": config['isMaster'],
+            "isMedia": config['isMedia'],
+            "isOnline": config['isOnline'],
+            "isResourceRepository": config['isResourceRepository'],
+            "isViewOnly": config['isViewOnly'],
+            "isVisibleToAll": config['isVisibleToAll'],
+            "keyInfoOrders": self._get_key_info_orders_from_db(questions),
+            "language": [
+                {
+                    "lng": config['language'],
+                    "title": config['title'],
+                    "buttons": [],
+                    "question": self._build_form_questions_from_db(questions, options)
+                }
+            ],
+            "syncStatus": {
+                "groupBy": "5",
+                "filterBy": config['filterDataBy'],
+                "conditions": [],
+                "questions": self._build_sync_questions_from_db(questions),
+                "_id": f"ObjectId(\"{self._generate_object_id()}\")"
+            },
+            "version": config['version'],
+            "villageOrder": config['villageOrder'],
+            "googleSheet": {},
+            "actions": [],
+            "isPreviewEnabled": config['isPreviewEnabled'],
+            "projects": [],
+            "hideAllLabel": config['hideAllLabel'],
+            "mainFormId": config['mainFormId'],
+            "projectOrder": config['projectOrder'],
+            "filterDataBy": config['filterDataBy'],
+            "filterFormId": config['filterFormId'],
+            "maskingConfig": [],
+            "encryptedQuestions": [],
+            "allowPreviewDownload": config['allowPreviewDownload'],
+            "parallelImportCall": config['parallelImportCall'],
+            "errorManagementStatus": config['errorManagementStatus'],
+            "searchOrders": [],
+            "copiedFormId": config['copiedFormId'],
+            "dataMigrated": config['dataMigrated'],
+            "enableAsr": config['enableAsr'],
+            "enableTts": config['enableTts'],
+            "isAutoCalculate": config['isAutoCalculate'],
+            "isReferenceData": config['isReferenceData'],
+            "isResetForReviewEdit": config['isResetForReviewEdit'],
+            "metaDataConfig": [],
+            "offlineReviewEdit": config['offlineReviewEdit'],
+            "tags": config['tags']
+        }
+        
+        return [form_definition]
+
+    def _build_response_questions_from_db(self, questions: List[Dict[str, Any]], options: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Build question array for response format from database data"""
+        response_questions = []
+        
+        for question in questions:
+            order = str(question['order'])
+            input_type = str(question['input_type'])
+            
+            # Get matching options for this question
+            matching_options = [opt for opt in options if opt['order'] == question['order']]
+            answer_data = []
+            initial_answer_data = []
+            
+            if matching_options:
+                # Use first option as default answer for choice questions
+                first_option = matching_options[0]
+                answer_data = [{
+                    "value": str(first_option['option_id']),
+                    "label": str(first_option['label']),
+                    "_id": f"ObjectId(\"{self._generate_object_id()}\")"
+                }]
+                initial_answer_data = [{
+                    "value": str(first_option['option_id']),
+                    "label": str(first_option['label']),
+                    "_id": f"ObjectId(\"{self._generate_object_id()}\")"
+                }]
+            
+            response_question = {
+                "order": order,
+                "input_type": input_type,
+                "answer": answer_data,
+                "intialAnswer": initial_answer_data,
+                "history": [],
+                "nestedAnswer": [],
+                "_id": f"ObjectId(\"{self._generate_object_id()}\")"
+            }
+            response_questions.append(response_question)
+        
+        return response_questions
+
+    def _build_form_questions_from_db(self, questions: List[Dict[str, Any]], options: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Build detailed question definitions from database data"""
+        form_questions = []
+        
+        for question in questions:
+            order = str(question['order'])
+            input_type = str(question['input_type'])
+            title = str(question['title'])
+            view_sequence = str(question.get('view_sequence', question['order']))
+            
+            # Get matching options for this question
+            matching_options = [opt for opt in options if opt['order'] == question['order']]
+            answer_options = []
+            
+            for option in matching_options:
+                answer_options.append({
+                    "_id": str(option['option_id']),
+                    "name": str(option['label']),
+                    "shortKey": "",
+                    "visibility": None,
+                    "did": [],
+                    "viewSequence": str(option['option_id']),
+                    "coordinates": []
+                })
+            
+            form_question = {
+                "order": order,
+                "label": order,
+                "title": title,
+                "shortKey": f"question_{order}",
+                "information": "",
+                "viewSequence": view_sequence,
+                "input_type": input_type,
+                "validation": [
+                    {
+                        "_id": "1",
+                        "error_msg": "",
+                        "condition": None
+                    }
+                ],
+                "answer_option": answer_options,
+                "restrictions": [],
+                "child": [],
+                "parent": [],
+                "hint": "",
+                "error_msg": "",
+                "resource_urls": [],
+                "editable": False,
+                "weightage": [],
+                "_id": f"ObjectId(\"{self._generate_object_id()}\")"
+            }
+            form_questions.append(form_question)
+        
+        return form_questions
+
+    def _build_sync_questions_from_db(self, questions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Build sync status questions from database data"""
+        sync_questions = []
+        
+        for question in questions:
+            order = str(question['order'])
+            
+            sync_question = {
+                "order": order,
+                "key": f"order{order}",
+                "clear": False,
+                "edit": True,
+                "setDefault": None,
+                "_id": f"ObjectId(\"{self._generate_object_id()}\")"
+            }
+            sync_questions.append(sync_question)
+        
+        return sync_questions
+
+    def _get_key_info_orders_from_db(self, questions: List[Dict[str, Any]]) -> List[str]:
+        """Get key info orders from database questions"""
+        orders = []
+        for question in questions:
+            orders.append(str(question['order']))
+            if len(orders) >= 7:  # Limit to first 7 as seen in tempData.json
+                break
+        return orders
 

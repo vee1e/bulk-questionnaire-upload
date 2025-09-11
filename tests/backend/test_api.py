@@ -69,9 +69,28 @@ async def test_parse_with_valid_excel_file(client: httpx.AsyncClient):
             # Should return parsed form data without saving to DB
             assert resp.status_code == 200
             body = resp.json()
-            assert 'title' in body
-            assert 'groups' in body
-            assert 'metadata' in body
+            
+            # New tempData.json format is an array containing form definitions
+            assert isinstance(body, list)
+            assert len(body) > 0
+            
+            form_definition = body[0]
+            assert '_id' in form_definition
+            assert 'formId' in form_definition
+            assert 'version' in form_definition
+            assert 'language' in form_definition
+            assert 'question' in form_definition
+            assert isinstance(form_definition['question'], list)
+            assert 'language' in form_definition
+            assert isinstance(form_definition['language'], list)
+            
+            # Check language array structure
+            if form_definition['language']:
+                lang_config = form_definition['language'][0]
+                assert 'lng' in lang_config
+                assert 'title' in lang_config
+                assert 'question' in lang_config
+                assert isinstance(lang_config['question'], list)
     else:
         # Skip test if no test file available
         pytest.skip("Test Excel file not found")
