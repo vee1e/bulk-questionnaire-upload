@@ -570,33 +570,38 @@ Form settings are now extracted dynamically from the Excel `Forms` sheet, includ
 
 ### Performance Metrics Table
 
-The system automatically collects performance metrics in `backend/metrics.txt`. Below is the current performance data from recent testing (August 25-26, 2025):
+The system automatically collects performance metrics in `backend/metrics.txt`. Below is the current performance data from recent testing (September 11-15, 2025):
 
 | Metric Type | Recent Performance |
 |-------------|-------------------|
-| **File Validation** | 2-3ms (0.002-0.003s) |
-| **Form Parsing** | 188-288ms (0.188-0.288s) |
-| **Form Upload** | 207-238ms (0.207-0.238s) |
-| **Question Processing** | 0.142-0.183ms per question |
-| **Option Processing** | 0.143-0.158ms per option |
-| **Batch Processing** | 222.08-281.11ms (10 forms) |
+| **File Validation** | 45-80ms (0.045-0.080s) |
+| **Form Parsing** | 142-190ms (0.142-0.190s) |
+| **Form Upload** | 270-680ms (0.270-0.680s) |
+| **Question Processing** | 0.155-0.443ms per question |
+| **Option Processing** | 0.128-0.352ms per option |
+| **Batch Processing** | 270-680ms per form |
+| **Delete Operations** | 12-44ms (0.012-0.044s) |
 | **Cold Start Time** | Tracked on startup |
 
-### Recent Testing Activity (Last 240 Lines Analysis)
+### Recent Testing Activity (September 2025 Analysis)
 
 | Time Period | Activity Type | Performance Range | Notes |
 |-------------|----------------|-------------------|--------|
-| **Aug 25, 18:57-20:22** | Cold Startups | Multiple events | System restart tracking |
-| **Aug 26, 00:06-00:20** | Intensive Testing | Sequential operations | Active performance testing |
-| **Validation Operations** | Form validation | 47-50ms range | Rapid sequential validations |
-| **Parse Operations** | Schema parsing | 207-238ms range | Parse-only testing |
+| **Sep 11, 16:19-22:24** | Intensive Testing | Sequential operations | Active performance testing |
+| **Sep 11, 20:31-21:04** | Extended Testing | Multiple operations | Comprehensive testing session |
+| **Sep 15, 21:29-21:35** | Latest Testing | Recent operations | Most current performance data |
+| **Validation Operations** | Form validation | 45-80ms range | Consistent validation performance |
+| **Parse Operations** | Schema parsing | 142-190ms range | Optimized parsing performance |
+| **Upload Operations** | Form upload | 270-680ms range | Variable based on form complexity |
 
 ### Performance Summary
 
 | Aspect | Details |
 |--------|---------|
-| **Validation Speed** | 2-3ms range for recent operations |
-| **Parse Performance** | 200-300ms range, room for optimization |
+| **Validation Speed** | 45-80ms range for recent operations |
+| **Parse Performance** | 142-190ms range, well optimized |
+| **Upload Performance** | 270-680ms range, scales with complexity |
+| **Delete Performance** | 12-44ms range, very efficient |
 | **Memory Management** | File streaming prevents memory leaks |
 | **Concurrent Processing** | Async operations with `asyncio.gather()` |
 | **Database Operations** | Optimized with compound indexes |
