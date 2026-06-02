@@ -1,6 +1,7 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import MongoClient
 import os
+import certifi
 from dotenv import load_dotenv
 from urllib.parse import quote_plus
 
@@ -26,7 +27,7 @@ if not MONGODB_URL:
     else:
         MONGODB_URL = f"mongodb://{user}:{password_enc}@{host}/{DATABASE_NAME}"
 
-async_client = AsyncIOMotorClient(MONGODB_URL)
+async_client = AsyncIOMotorClient(MONGODB_URL, tlsCAFile=certifi.where())
 database = async_client[DATABASE_NAME]
 
 forms_collection = database.forms
