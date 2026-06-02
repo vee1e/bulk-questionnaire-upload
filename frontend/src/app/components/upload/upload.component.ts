@@ -1,5 +1,5 @@
-import { Component, OnInit, Input, OnChanges, SimpleChanges, HostListener } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, Input, OnChanges, SimpleChanges, HostListener, PLATFORM_ID, inject } from '@angular/core';
+import { isPlatformBrowser, CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -1593,10 +1593,14 @@ export class UploadComponent implements OnInit, OnChanges {
   currentPreviewedFormId: string | null = null;
   updateTargetForm: FormData | null = null;
 
+  private platformId = inject(PLATFORM_ID);
+
   constructor(private formService: FormService, private formPreviewService: FormPreviewService, private snackBar: MatSnackBar) {}
 
   ngOnInit(): void {
-    this.loadForms();
+    if (isPlatformBrowser(this.platformId)) {
+      this.loadForms();
+    }
     this.restoreUploadState();
 
     // Subscribe to currently previewed form
