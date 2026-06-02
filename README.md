@@ -2,14 +2,19 @@
 
 Upload, validate, and manage Excel-based questionnaires through a modern web UI. XLSForm-compatible three-sheet format (Forms / Questions Info / Answer Options), parsed into a mobile-app-ready JSON schema and stored in MongoDB.
 
-**Live:** [bulk-questionnaire-upload.vercel.app](https://bulk-questionnaire-upload.vercel.app) · **API:** [bulk-questionnaire-upload.onrender.com](https://bulk-questionnaire-upload.onrender.com/docs)
+- Live at [bulk-questionnaire-upload.vercel.app](https://bulk-questionnaire-upload.vercel.app)
+- API at [bulk-questionnaire-upload.onrender.com](https://bulk-questionnaire-upload.onrender.com/docs)
 
 ## Screenshots
 
-<!-- TODO: replace with actual screenshots -->
-| Upload & Validate | Form List | Form Preview |
-|:-----------------:|:---------:|:------------:|
-| _screenshot_ | _screenshot_ | _screenshot_ |
+| Upload & Validate|
+|:-----------------:|
+| <img width="2896" height="1802" alt="image" src="https://github.com/user-attachments/assets/631775e7-d9be-428f-8116-dac9dcc8ac81" />|
+| Form Parse with Errors |
+| <img width="2896" height="1802" alt="image" src="https://github.com/user-attachments/assets/d7b59f33-5afe-43ef-b55f-93ae9bc4891a" /> |
+| Form Parse Successful | 
+| <img width="2896" height="1802" alt="image" src="https://github.com/user-attachments/assets/a4bf74ab-0a8c-46cc-8379-5c9e769c5565" /> |
+
 
 ## Performance
 
@@ -44,15 +49,3 @@ Benchmarks are measured automatically on every push to `main` against the live R
 
 See [`backend/README.md`](backend/README.md) for API reference, file format specs, and local setup.  
 See [`frontend/README.md`](frontend/README.md) for component structure, config, and development guide.
-
-## Contributing
-
-1. Fork and create a branch: `git checkout -b feat/your-thing`
-2. Make changes and ensure tests pass: `pytest tests/backend` · `npm run test:run`
-3. Commit with a conventional message: `feat:`, `fix:`, `docs:`, `test:`
-4. Open a pull request — CI runs backend tests, frontend tests, and a live perf benchmark on merge
-
-**Checklist before opening a PR:**
-- [ ] Tests added or updated
-- [ ] No new lint errors
-- [ ] API changes reflected in `backend/README.md`
