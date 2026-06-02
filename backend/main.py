@@ -38,11 +38,22 @@ app.add_middleware(
 
 @app.middleware("http")
 async def add_cors_header(request: Request, call_next):
+    from starlette.responses import Response as StarletteResponse
+    if request.method == "OPTIONS":
+        return StarletteResponse(
+            status_code=200,
+            headers={
+                "access-control-allow-origin": "*",
+                "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+                "access-control-allow-headers": "*",
+                "access-control-max-age": "600",
+            },
+        )
     response = await call_next(request)
     origin = request.headers.get("origin", "")
     if origin and "access-control-allow-origin" not in response.headers:
         response.headers["access-control-allow-origin"] = "*"
-        response.headers["access-control-allow-methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        response.headers["access-control-allow-methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
         response.headers["access-control-allow-headers"] = "*"
     return response
 
