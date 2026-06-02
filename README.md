@@ -4,16 +4,12 @@ Upload, validate, and manage Excel-based questionnaires through a modern web UI.
 
 **Live:** [bulk-questionnaire-upload.vercel.app](https://bulk-questionnaire-upload.vercel.app) · **API:** [bulk-questionnaire-upload.onrender.com](https://bulk-questionnaire-upload.onrender.com/docs)
 
----
-
 ## Screenshots
 
 <!-- TODO: replace with actual screenshots -->
 | Upload & Validate | Form List | Form Preview |
 |:-----------------:|:---------:|:------------:|
 | _screenshot_ | _screenshot_ | _screenshot_ |
-
----
 
 ## Performance
 
@@ -36,8 +32,6 @@ Benchmarks are measured automatically on every push to `main` against the live R
 
 <!-- PERF_TABLE_END -->
 
----
-
 ## Stack
 
 | Layer | Tech |
@@ -50,8 +44,6 @@ Benchmarks are measured automatically on every push to `main` against the live R
 
 See [`backend/README.md`](backend/README.md) for API reference, file format specs, and local setup.  
 See [`frontend/README.md`](frontend/README.md) for component structure, config, and development guide.
-
----
 
 ## Contributing
 

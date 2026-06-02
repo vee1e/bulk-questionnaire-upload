@@ -2,8 +2,6 @@
 
 Angular 19 SPA with SSR, Angular Material dark theme, and async bulk-upload queue. Deployed on Vercel.
 
----
-
 ## Local Setup
 
 ```bash
@@ -23,8 +21,6 @@ API URL is loaded at startup from `public/assets/config.json` so no rebuild is n
 ```
 
 Falls back to `http://localhost:8000/api` if the file is missing.
-
----
 
 ## Structure
 
@@ -50,8 +46,6 @@ src/app/
 - **SSR** — Angular Universal with client hydration and event replay
 - **Dark theme** — Angular Material with custom SCSS variables
 
----
-
 ## Testing
 
 ```bash
@@ -59,8 +53,6 @@ npm run test:run     # Vitest (jsdom)
 ```
 
 Test files live in `tests/frontend/`.
-
----
 
 ## Building for Production
 

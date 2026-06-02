@@ -2,8 +2,6 @@
 
 FastAPI service that validates, parses, and stores XLSForm-compatible Excel files. Deployed on Render.
 
----
-
 ## Local Setup
 
 ```bash
@@ -23,8 +21,6 @@ Swagger UI: http://localhost:8000/docs
 | `MONGODB_URL` | — | Full MongoDB connection string |
 | `DATABASE_NAME` | `mform_bulk_upload` | Database name |
 | `FRONTEND_URL` | `*` | Allowed CORS origin(s), comma-separated |
-
----
 
 ## API Reference
 
@@ -79,8 +75,6 @@ Delete one form and all its questions and options.
 ### DELETE `/api/forms`
 Delete all forms (bulk).
 
----
-
 ## File Format
 
 Three sheets are required:
@@ -124,8 +118,6 @@ Three sheets are required:
 
 Choice questions (types 2, 3) must have matching Answer Options rows. Orphaned options (no matching question) are a validation error.
 
----
-
 ## Database Schema
 
 **forms** `{ _id, title, language, version, created_at }`  
@@ -133,8 +125,6 @@ Choice questions (types 2, 3) must have matching Answer Options rows. Orphaned o
 **options** `{ _id, form_id, order, option_id, label, created_at }`
 
 Indexes: `forms.created_at desc`, `questions.form_id`, `options.{form_id, order}`.
-
----
 
 ## Testing
 
