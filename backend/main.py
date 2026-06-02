@@ -52,8 +52,17 @@ async def startup_event():
     """Connect to MongoDB on startup and log cold start time"""
     global startup_time
     startup_time = time.time()
-    await connect_to_mongo()
-    log_metric('cold_startup_time', time.strftime('%Y-%m-%d %H:%M:%S'))
+    # Run in background so the HTTP server binds its port immediately.
+    # If MongoDB is unreachable (e.g. Atlas IP allowlist), the server stays
+    # up and retries rather than blocking Render's health check.
+    asyncio.create_task(_connect_with_log())
+
+async def _connect_with_log():
+    try:
+        await connect_to_mongo()
+        log_metric('cold_startup_time', time.strftime('%Y-%m-%d %H:%M:%S'))
+    except Exception as e:
+        logger.error(f"MongoDB connection failed at startup: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_event():
