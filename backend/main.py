@@ -20,9 +20,17 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="mForm Bulk Upload API")
 
+# Allow configuring CORS origins via environment (useful for deployed frontend)
+FRONTEND_URL = os.getenv("FRONTEND_URL", "*")
+if FRONTEND_URL == "*":
+    allow_origins = ["*"]
+else:
+    # Support a comma-separated list of origins
+    allow_origins = [o.strip() for o in FRONTEND_URL.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:4200"],
+    allow_origins=allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

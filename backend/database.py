@@ -2,11 +2,29 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import MongoClient
 import os
 from dotenv import load_dotenv
+from urllib.parse import quote_plus
 
 load_dotenv()
 
-MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
+# Allow either a full connection string via MONGODB_URL or build it from
+# individual parts (MONGODB_USER, MONGODB_PASSWORD, MONGODB_HOST). This lets
+# you store the password as a separate secret in Render instead of a long URL.
+MONGODB_URL = os.getenv("MONGODB_URL")
 DATABASE_NAME = os.getenv("DATABASE_NAME", "mform_bulk_upload")
+
+if not MONGODB_URL:
+    user = os.getenv("MONGODB_USER", "vermalucky2004")
+    password = os.getenv("MONGODB_PASSWORD", "")
+    host = os.getenv("MONGODB_HOST", "localhost:27017")
+
+    # URL-encode password in case it contains special characters
+    password_enc = quote_plus(password)
+
+    # If host looks like a mongodb+srv host (contains "."), use the srv URL
+    if host and ("." in host):
+        MONGODB_URL = f"mongodb+srv://{user}:{password_enc}@{host}/{DATABASE_NAME}?retryWrites=true&w=majority"
+    else:
+        MONGODB_URL = f"mongodb://{user}:{password_enc}@{host}/{DATABASE_NAME}"
 
 async_client = AsyncIOMotorClient(MONGODB_URL)
 database = async_client[DATABASE_NAME]
