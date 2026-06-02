@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { FormValidation } from '../models/form.model';
+import { getRuntimeConfig } from '../runtime-config';
 
 export interface FormData {
     id: string;
@@ -68,7 +69,7 @@ export interface ParsedSchema {
     providedIn: 'root'
 })
 export class FormService {
-    private readonly apiUrl = 'http://localhost:8000/api';
+    private readonly apiUrl = (getRuntimeConfig().API_URL as string) || 'http://localhost:8000/api';
 
     constructor(private http: HttpClient) { }
 

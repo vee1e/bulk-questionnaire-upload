@@ -4,6 +4,7 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
+    "prebuild": "node -e \"const fs=require('fs');const api=process.env.API_URL||'http://localhost:8000/api';fs.mkdirSync('src/assets', { recursive: true });fs.writeFileSync('src/assets/config.json', JSON.stringify({ API_URL: api }));\"",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "serve:ssr:mform-upload": "node --no-deprecation dist/mform-upload/server/server.mjs",
