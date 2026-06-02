@@ -1,6 +1,8 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import MongoClient
 import os
+import ssl
+import certifi
 from dotenv import load_dotenv
 from urllib.parse import quote_plus
 
@@ -26,7 +28,10 @@ if not MONGODB_URL:
     else:
         MONGODB_URL = f"mongodb://{user}:{password_enc}@{host}/{DATABASE_NAME}"
 
-async_client = AsyncIOMotorClient(MONGODB_URL)
+_ssl_context = ssl.create_default_context(cafile=certifi.where())
+_ssl_context.set_ciphers("DEFAULT@SECLEVEL=1")
+
+async_client = AsyncIOMotorClient(MONGODB_URL, ssl_context=_ssl_context)
 database = async_client[DATABASE_NAME]
 
 forms_collection = database.forms
