@@ -22,18 +22,18 @@ Benchmarks are measured automatically on every push to `main` against the live R
 
 <!-- PERF_TABLE_START -->
 
-*Last measured: 2026-06-02 09:32 UTC against the live Render deployment.*
+*Last measured: 2026-06-02 09:42 UTC against the live Render deployment.*
 
 | Metric Type | Recent Performance |
 |-------------|-------------------|
-| **File Validation** | 1208–3962ms (1.208–3.962s) |
-| **Form Parsing** | 5620–6194ms (5.620–6.194s) |
-| **Form Upload** | N/A (MongoDB not connected) |
-| **Question Processing** | N/A (MongoDB not connected) |
-| **Option Processing** | N/A (MongoDB not connected) |
-| **Batch Processing** | N/A (MongoDB not connected) |
-| **Delete Operations** | N/A (MongoDB not connected) |
-| **Cold Start Time** | 771ms |
+| **File Validation** | 1382–4044ms (1.382–4.044s) |
+| **Form Parsing** | 5019–5421ms (5.019–5.421s) |
+| **Form Upload** | 77890–77890ms (77.890–77.890s) |
+| **Question Processing** | 188.140ms per item |
+| **Option Processing** | 108.482ms per item |
+| **Batch Processing** | 77890–77890ms (77.890–77.890s) |
+| **Delete Operations** | 899–899ms (0.899–0.899s) |
+| **Cold Start Time** | 778ms |
 
 <!-- PERF_TABLE_END -->
 
