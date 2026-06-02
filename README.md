@@ -572,16 +572,22 @@ Form settings are now extracted dynamically from the Excel `Forms` sheet, includ
 
 The system automatically collects performance metrics in `backend/metrics.txt`. Below is the current performance data from recent testing (September 11-15, 2025):
 
+<!-- PERF_TABLE_START -->
+
+*Last measured: 2026-06-02 08:22 UTC against the live Render deployment.*
+
 | Metric Type | Recent Performance |
 |-------------|-------------------|
-| **File Validation** | 45-80ms (0.045-0.080s) |
-| **Form Parsing** | 142-190ms (0.142-0.190s) |
-| **Form Upload** | 270-680ms (0.270-0.680s) |
-| **Question Processing** | 0.155-0.443ms per question |
-| **Option Processing** | 0.128-0.352ms per option |
-| **Batch Processing** | 270-680ms per form |
-| **Delete Operations** | 12-44ms (0.012-0.044s) |
-| **Cold Start Time** | Tracked on startup |
+| **File Validation** | 1294–2198ms (1.294–2.198s) |
+| **Form Parsing** | 4964–6790ms (4.965–6.790s) |
+| **Form Upload** | 75017–75017ms (75.017–75.017s) |
+| **Question Processing** | 181.201ms per item |
+| **Option Processing** | 104.481ms per item |
+| **Batch Processing** | 75017–75017ms (75.017–75.017s) |
+| **Delete Operations** | N/A (MongoDB not connected) |
+| **Cold Start Time** | 386ms |
+
+<!-- PERF_TABLE_END -->
 
 ### Recent Testing Activity (September 2025 Analysis)
 
