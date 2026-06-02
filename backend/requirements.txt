@@ -6,8 +6,8 @@ openpyxl==3.1.2
 pandas
 pydantic
 python-dotenv==1.0.0
-motor==3.3.1
-pymongo==4.5.0
+motor==3.6.0
+pymongo==4.9.2
 xlrd==2.0.1
 pytest
 pytest-asyncio
