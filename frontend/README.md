@@ -1,422 +1,72 @@
-# mForm Bulk Upload Frontend
+# Frontend
 
-A modern, full-stack Angular application for bulk uploading, validating, parsing, and managing questionnaire forms. Built with Angular 19, featuring server-side rendering, comprehensive error handling, and a sleek dark theme interface.
+Angular 19 SPA with SSR, Angular Material dark theme, and async bulk-upload queue. Deployed on Vercel.
 
-## Quick Start
+---
 
-### Prerequisites
-- Node.js 18+
-- Angular CLI 19+
-- Backend API server running
-
-### Installation
+## Local Setup
 
 ```bash
-# Navigate to frontend directory
-cd frontend
-
-# Install dependencies
+cd frontend/
 npm install
-
-# Start development server
-npm start
-
-# Build for production
-npm run build
-
-# Start SSR server
-npm run serve:ssr:mform-upload
+ng serve --port 4200
 ```
 
-### Development Commands
+App: http://localhost:4200 (expects backend at http://localhost:8000)
 
-```bash
-npm start          # Development server on http://localhost:4200
-npm run build      # Production build
-npm run watch      # Watch mode build
-npm run test       # Run tests with Vitest
-npm run test:run   # Run tests once
+### Runtime Config
+
+API URL is loaded at startup from `public/assets/config.json` so no rebuild is needed to point at a different backend:
+
+```json
+{ "API_URL": "https://your-backend.onrender.com/api" }
 ```
 
-## Architecture & Tech Stack
+Falls back to `http://localhost:8000/api` if the file is missing.
 
-### Core Technologies
-- **Angular 19** - Latest Angular with standalone components
-- **TypeScript 5.7** - Full type safety and modern features
-- **Angular Material** - UI component library with custom dark theme
-- **Server-Side Rendering** - SEO-friendly and fast initial loads
-- **Vitest** - Modern testing framework (replaces Jasmine/Karma)
-- **Express.js** - SSR server backend
+---
+
+## Structure
+
+```
+src/app/
+  components/
+    upload/      # Main drag-drop upload + form list + queue management
+    navbar/      # Top navigation
+    search/      # Form search bar
+  services/
+    form.service.ts          # All API calls
+    form-preview.service.ts  # Preview state
+  models/
+    form.model.ts
+  runtime-config.ts          # Async config loader (reads config.json)
+```
 
 ### Key Features
 
-#### Bulk File Operations
-- **Drag & Drop Interface** - Intuitive file selection with visual feedback
-- **Async Multi-file Upload** - Process multiple Excel files concurrently with configurable limits
-- **Upload Queue Management** - Pause, resume, and stop upload operations
-- **Progress Tracking** - Real-time progress bars with color-coded operations
-- **Session Persistence** - Upload state preserved across browser sessions
-- **Batch Validation** - Validate all files before upload with detailed error reports
+- **Async upload queue** — concurrent file processing with pause / resume / stop
+- **Validation feedback** — per-file error and warning lists from the backend
+- **Form management** — view, update, delete stored forms
+- **SSR** — Angular Universal with client hydration and event replay
+- **Dark theme** — Angular Material with custom SCSS variables
 
-#### Form Management
-- **TempData JSON Parsing** - Convert XLS/XLSX files to comprehensive tempData.json format
-- **Dynamic Form Configuration** - Extract and display form settings from Excel data
-- **Form Preview** - Interactive form details with question/option navigation
-- **Search & Filter** - Real-time search across all uploaded forms
-- **Form Updates** - In-place form updates preserving history and IDs
+---
 
-#### User Experience
-- **Dark Theme** - Custom black/white Material Design theme
-- **Top-positioned Notifications** - Success toasts appear at top of screen for immediate visibility
-- **Keyboard Shortcuts** - Power user features for efficient navigation
-- **Responsive Design** - Works seamlessly on desktop and mobile
-- **Accessibility** - ARIA support and keyboard navigation
+## Testing
 
-#### Performance & Reliability
-- **Server-Side Rendering** - Fast initial page loads and SEO benefits
-- **Error Recovery** - Comprehensive error handling with user-friendly messages
-- **Offline Support** - Graceful degradation and connection status
-- **Memory Management** - Efficient file handling and cleanup
-
- 
-
-## Core Components
-
-### UploadComponent
-**Location:** `src/app/components/upload/upload.component.ts`
-
-The main component handling all file operations and form management:
-
-```typescript
-// Key features implemented:
-- Drag & drop file handling
-- Async multi-file validation and parsing
-- Concurrent upload queue management
-- Real-time progress tracking with pause/resume/stop
-- Form list management with tempData.json format
-- Schema preview modal with format conversion
-- Error handling and user feedback
-- Session persistence for upload state
-```
-
-**Key Methods:**
-- `onDragOver/onDrop` - File drag & drop handling
-- `validateFiles()` - Batch file validation
-- `uploadFiles()` - Async multi-file upload initialization
-- `processQueueAsync()` - Concurrent upload queue processing
-- `uploadSingleFileAsync()` - Individual file upload with Promise wrapper
-- `pauseUpload/resumeUpload/cancelUpload()` - Upload control methods
-- `parseFilesOnly()` - Preview parsing without saving
-- `showFormDetails()` - Form preview integration with format conversion
-- `convertTempDataToFormDetails()` - Convert tempData.json to FormDetails interface
-
-### NavbarComponent
-**Location:** `src/app/components/navbar/navbar.component.ts`
-
-Navigation with integrated form preview system:
-
-```typescript
-// Features:
-- Form preview panel with slide animation
-- Keyboard navigation (Ctrl+J/K, Shift+Ctrl+J/K)
-- Question-by-question navigation
-- Real-time form data display
-```
-
-### SearchComponent
-**Location:** `src/app/components/search/search.component.ts`
-
-Intelligent search functionality:
-
-```typescript
-// Capabilities:
-- Real-time form title search
-- Keyboard shortcut (Shift+K) focus
-- Debounced search for performance
-- Visual feedback and accessibility
-```
-
-## API Integration
-
-### FormService
-**Location:** `src/app/services/form.service.ts`
-
-Centralized API communication layer with tempData.json format support:
-
-```typescript
-@Injectable({ providedIn: 'root' })
-export class FormService {
-  private readonly apiUrl = 'http://localhost:8000/api';
-
-  // Core API methods
-  validateFile(file: File): Observable<FormValidation>
-  parseFile(file: File): Observable<any[]>  // Returns tempData.json array format
-  uploadFiles(files: File[]): Observable<any[]>  // Returns tempData.json array format
-  getAllForms(): Observable<FormsResponse>
-  getFormById(formId: string): Observable<any>  // Returns tempData.json array format
-  updateForm(formId: string, file: File): Observable<any>
-  deleteForm(formId: string): Observable<{ message: string }>
-  deleteAllForms(): Observable<{ message: string }>
-}
-```
-
-### Backend Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/validate` | Validate Excel file format and content |
-| POST | `/api/forms/parse` | Parse Excel to JSON schema (no save) |
-| POST | `/api/upload` | Upload and save form to database |
-| GET | `/api/forms` | Retrieve all uploaded forms |
-| GET | `/api/forms/:id` | Get specific form details |
-| PUT | `/api/forms/:id/update` | Update existing form with new file |
-| DELETE | `/api/forms/:id` | Delete specific form |
-| DELETE | `/api/forms` | Delete all forms |
-
-## Styling & Theming
-
-### Dark Theme Implementation
-**Location:** `src/styles.scss`
-
-Custom Material Design dark theme with:
-- Black background with glassmorphism effects
-- White text and borders for high contrast
-- Custom color palette for buttons and states
-- Responsive design with mobile-first approach
-
-### Component Styling Strategy
-- **Inline styles** in component decorators for encapsulation
-- **Global overrides** in `styles.scss` for consistency
-- **CSS custom properties** for theme flexibility
-- **SCSS nesting** for maintainable component styles
-
-## Testing Strategy
-
-### Vitest Configuration
-**Location:** `vitest.config.ts`
-
-```typescript
-export default defineConfig({
-  test: {
-    environment: 'jsdom',
-    include: ['tests/frontend/**/*.spec.ts'],
-    globals: true
-  }
-})
-```
-
-### Test Structure
-**Location:** `tests/frontend/`
-
-- **form.service.spec.ts** - API service testing
-- Unit tests for components and services
-- Integration tests for critical user flows
-- E2E test coverage for upload workflows
-
-### Running Tests
 ```bash
-npm run test        # Watch mode
-npm run test:run    # Single run
+npm run test:run     # Vitest (jsdom)
 ```
 
-## Deployment & Production
+Test files live in `tests/frontend/`.
 
-### Build Configuration
-**Location:** `angular.json`
+---
 
-Key production settings:
-- **SSR enabled** for better performance
-- **Budget limits** for bundle size optimization
-- **Asset optimization** and hashing
-- **Source maps** for debugging
+## Building for Production
 
-### Production Build
 ```bash
 npm run build
-# Output: dist/mform-upload/
+# output: dist/mform-upload/
 ```
 
-### SSR Deployment
-```bash
-npm run serve:ssr:mform-upload
-# Starts Express server on port 4000
-```
-
-## Async Upload System
-
-### Upload Queue Configuration
-The upload system supports configurable concurrent processing:
-
-```typescript
-// Upload control properties
-uploadStopped: boolean = false;
-uploadController: AbortController | null = null;
-activeUploads: Promise<void>[] = [];
-maxConcurrentUploads: number = 3;  // Configurable limit
-```
-
-### Upload Control Methods
-- **`uploadFiles()`** - Initialize async upload process
-- **`processQueueAsync()`** - Process files concurrently with limits
-- **`pauseUpload()`** - Pause current uploads (preserves queue)
-- **`resumeUpload()`** - Resume from where paused
-- **`cancelUpload()`** - Stop all uploads and abort requests
-- **`setMaxConcurrentUploads(max)`** - Configure concurrency limit
-
-### Session Persistence
-Upload state is automatically saved to browser session storage:
-- Current upload queue and progress
-- Processed files list
-- Upload pause/stop state
-- Form validation results
-
-### Notification System
-Success notifications now appear at the top of the screen:
-- Individual file success: "Successfully processed [filename]"
-- Batch completion: "Successfully processed all X form(s)!"
-- Upload resume: "Upload resumed"
-
-## Configuration & Environment
-
-### Angular Configuration
-**Location:** `src/app/app.config.ts`
-
-```typescript
-export const appConfig: ApplicationConfig = {
-  providers: [
-    provideZoneChangeDetection({ eventCoalescing: true }),
-    provideRouter(routes),
-    provideClientHydration(withEventReplay()),
-    provideAnimations(),
-    provideHttpClient(withFetch())
-  ]
-};
-```
-
-### Server-Side Rendering
-**Location:** `src/server.ts`
-
-Express server with:
-- Static file serving with caching
-- Angular SSR integration
-- Production-ready error handling
-
-## Keyboard Shortcuts
-
-| Shortcut | Action | Context |
-|----------|--------|---------|
-| `Shift + K` | Focus search | Global |
-| `Ctrl + J` | Next form | Form list |
-| `Ctrl + K` | Previous form | Form list |
-| `Ctrl + Shift + J` | Next question | Form preview |
-| `Ctrl + Shift + K` | Previous question | Form preview |
-| `Esc` | Close modals/preview | Modal open |
-
-## Error Handling
-
-### Validation Error Types
-- **File Structure Errors** - Missing sheets, columns, invalid formats
-- **Data Validation Errors** - Type mismatches, missing values, duplicates
-- **Network Errors** - Connection issues, server errors, timeouts
-- **File Processing Errors** - Corrupted files, encoding issues
-
-### Error Recovery
-- **User-friendly messages** with actionable suggestions
-- **Automatic retry** for network failures
-- **Graceful degradation** for non-critical features
-- **Detailed error logs** for debugging
-
-## Future Enhancements
-
-### Potential Improvements
-1. **File Type Support** - Add CSV, JSON import capabilities
-2. **Real-time Collaboration** - Multi-user form editing
-3. **Advanced Analytics** - Form usage statistics and insights
-4. **Template System** - Pre-built form templates
-5. **Export Options** - Additional export formats (PDF, XML)
-6. **Offline Mode** - Full offline capability with sync
-7. **Internationalization** - Multi-language support
-8. **Performance Monitoring** - Application performance tracking
-
-### Scalability Considerations
-- **Lazy Loading** - Implement route-based code splitting
-- **Service Workers** - Add PWA capabilities
-- **Caching Strategy** - Implement intelligent data caching
-- **Bundle Optimization** - Code splitting and tree shaking
-- **CDN Integration** - Static asset optimization
-
-## API Documentation
-
-### Form Validation Response
-```typescript
-interface FormValidation {
-  valid: boolean;
-  message: string;
-  errors?: ValidationError[];
-  warnings?: ValidationWarning[];
-  sheets?: SheetValidation[];
-  form_metadata?: Record<string, any>;
-}
-```
-
-### Form Data Structure
-```typescript
-interface FormData {
-  id: string;
-  title: string;
-  language: string;
-  version: string;
-  created_at: string;
-}
-```
-
-### TempData JSON Structure
-```typescript
-interface TempDataResponse {
-  _id: string;  // ObjectId string
-  formId: number;
-  version: string;
-  language: Array<{lng: string, default: boolean}>;
-  question: Array<{
-    order: number;
-    input_type: number;
-    answer: string;
-    initialAnswer: string;
-  }>;
-  responseUpdateHistory: any[];
-  appVersion: string;
-  responseIds: {
-    formResponseId: string;
-    tempResponseId: string;
-  };
-  syncStatus: {
-    questions: Array<{order: number, synced: boolean}>;
-  };
-  keyInfoOrders: number[];
-  copiedFormId: number;
-  title: string;
-  subtitle?: string;
-  description?: string;
-}
-```
-
-## Contributing
-
-### Development Guidelines
-1. **Code Style** - Follow Angular style guide and TypeScript best practices
-2. **Component Design** - Use standalone components with proper encapsulation
-3. **State Management** - Centralize state in services, avoid component coupling
-4. **Testing** - Write tests for new features and bug fixes
-5. **Documentation** - Update README and add JSDoc comments
-
-### Code Quality
-- **ESLint** integration with Angular CLI
-- **Pre-commit hooks** for code quality checks
-- **Type checking** with strict TypeScript configuration
-- **Bundle analysis** for performance monitoring
-
-## License
-
-This project is licensed under the terms specified in the root LICENSE file.
-
-Note: This documentation is automatically generated and reflects the current state of the codebase. For the most up-to-date information, refer to the source code and tests.
+Vercel picks this up automatically on push to `main`.
