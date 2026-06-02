@@ -982,10 +982,9 @@ class XLSFormParser:
         return Question(**question_data)
 
     def _generate_object_id(self) -> str:
-        """Generate a mock ObjectId string for the tempData format"""
-        import random
-        import string
-        return ''.join(random.choices(string.ascii_lowercase + string.digits, k=24))
+        """Generate a mock ObjectId string for the tempData format."""
+        import secrets
+        return secrets.token_hex(12)
 
     def _extract_form_config(self, forms_df: pd.DataFrame) -> Dict[str, Any]:
         """Extract form configuration from Forms sheet with sensible defaults"""
