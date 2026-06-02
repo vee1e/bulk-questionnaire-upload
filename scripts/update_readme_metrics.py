@@ -15,20 +15,38 @@ README_FILE = os.path.join(ROOT, "README.md")
 
 
 def fmt_range(m):
-    """Format a min/max/avg dict into a readable string."""
+    """Format a min/max/avg dict into a readable string, or None if unavailable."""
     if m is None:
-        return "N/A (MongoDB not connected)"
+        return None
     lo, hi = m["min_ms"], m["max_ms"]
     return f"{lo:.0f}–{hi:.0f}ms ({lo/1000:.3f}–{hi/1000:.3f}s)"
 
 
 def fmt_per(ms):
     if ms is None:
-        return "N/A (MongoDB not connected)"
+        return None
     return f"{ms:.3f}ms per item"
 
 
-def build_table(r, updated_at):
+def parse_existing_table(content):
+    """Extract previous metric values from the README table by label."""
+    existing = {}
+    marker_pattern = re.compile(
+        r"<!-- PERF_TABLE_START -->.*?<!-- PERF_TABLE_END -->",
+        re.DOTALL,
+    )
+    match = marker_pattern.search(content)
+    if not match:
+        return existing
+    row_pattern = re.compile(r"\|\s*(\*\*[^|]+\*\*)\s*\|\s*([^|]+)\s*\|")
+    for m in row_pattern.finditer(match.group(0)):
+        label = m.group(1).strip()
+        value = m.group(2).strip()
+        existing[label] = value
+    return existing
+
+
+def build_table(r, updated_at, existing=None):
     v = r.get("validation")
     p = r.get("parsing")
     u = r.get("upload")
@@ -39,14 +57,24 @@ def build_table(r, updated_at):
 
     cold_str = f"{cs:.0f}ms" if cs is not None else "N/A"
 
+    def keep_prev(label, value):
+        """Return value if measured, otherwise the previous README value."""
+        if value is not None:
+            return value
+        if existing:
+            prev = existing.get(label, "")
+            if prev and "MongoDB not connected" not in prev and prev != "N/A":
+                return prev
+        return "N/A"
+
     rows = [
-        ("**File Validation**",      fmt_range(v)),
-        ("**Form Parsing**",         fmt_range(p)),
-        ("**Form Upload**",          fmt_range(u)),
-        ("**Question Processing**",  fmt_per(pq)),
-        ("**Option Processing**",    fmt_per(po)),
-        ("**Batch Processing**",     fmt_range(u)),
-        ("**Delete Operations**",    fmt_range(d)),
+        ("**File Validation**",      keep_prev("**File Validation**",     fmt_range(v))),
+        ("**Form Parsing**",         keep_prev("**Form Parsing**",         fmt_range(p))),
+        ("**Form Upload**",          keep_prev("**Form Upload**",          fmt_range(u))),
+        ("**Question Processing**",  keep_prev("**Question Processing**",  fmt_per(pq))),
+        ("**Option Processing**",    keep_prev("**Option Processing**",    fmt_per(po))),
+        ("**Batch Processing**",     keep_prev("**Batch Processing**",     fmt_range(u))),
+        ("**Delete Operations**",    keep_prev("**Delete Operations**",    fmt_range(d))),
         ("**Cold Start Time**",      cold_str),
     ]
 
@@ -74,10 +102,12 @@ def main():
         results = json.load(f)
 
     updated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
-    new_table = build_table(results, updated_at)
 
     with open(README_FILE) as f:
         content = f.read()
+
+    existing = parse_existing_table(content)
+    new_table = build_table(results, updated_at, existing=existing)
 
     # Replace between markers if they exist, otherwise replace the whole table
     marker_pattern = re.compile(

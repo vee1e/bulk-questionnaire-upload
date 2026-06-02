@@ -112,11 +112,11 @@ def main():
             results["upload"] = m
             log(f"Upload:      {m}")
             data = resp.json()
-            for item in (data if isinstance(data, list) else []):
-                form = item.get("form") if isinstance(item, dict) else None
-                if form:
-                    uploaded_id = form.get("id") or form.get("_id")
-                    break
+            for item in (data if isinstance(data, list) else [data]):
+                if isinstance(item, dict):
+                    uploaded_id = item.get("id") or item.get("_id")
+                    if uploaded_id:
+                        break
         else:
             log(f"Upload returned {resp.status_code} – skipping (MongoDB not connected?)")
             results["upload"] = None
