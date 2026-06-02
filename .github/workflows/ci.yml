@@ -25,6 +25,8 @@ jobs:
           pip install -r backend/requirements.txt
       
       - name: Run pytest
+        env:
+          MONGODB_URL: ${{ vars.MONGODB_URL }}
         run: |
           python -m pytest tests/backend -q
 
