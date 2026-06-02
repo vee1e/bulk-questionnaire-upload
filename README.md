@@ -12,7 +12,7 @@ Upload, validate, and manage Excel-based questionnaires through a modern web UI.
 | <img width="2896" height="1802" alt="image" src="https://github.com/user-attachments/assets/631775e7-d9be-428f-8116-dac9dcc8ac81" />|
 | Form Parse with Errors |
 | <img width="2896" height="1802" alt="image" src="https://github.com/user-attachments/assets/d7b59f33-5afe-43ef-b55f-93ae9bc4891a" /> |
-| Form Parse Successful | 
+| Form Parse Successful |
 | <img width="2896" height="1802" alt="image" src="https://github.com/user-attachments/assets/a4bf74ab-0a8c-46cc-8379-5c9e769c5565" /> |
 
 
@@ -45,7 +45,7 @@ Benchmarks are measured automatically on every push to `main` against the live R
 | Backend | FastAPI, Uvicorn, Pandas, Motor |
 | Database | MongoDB Atlas |
 | Deploy | Vercel (frontend) · Render (backend) |
-| CI | GitHub Actions — tests + live perf benchmarks |
+| CI | GitHub Actions - tests + live perf benchmarks |
 
-See [`backend/README.md`](backend/README.md) for API reference, file format specs, and local setup.  
+See [`backend/README.md`](backend/README.md) for API reference, file format specs, and local setup.
 See [`frontend/README.md`](frontend/README.md) for component structure, config, and development guide.
