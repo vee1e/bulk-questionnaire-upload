@@ -25,16 +25,14 @@ class DatabaseService:
     async def save_questions(self, questions: List[Dict[str, Any]], form_id: str) -> List[str]:
         """Save questions to database"""
         try:
-            question_ids = []
+            if not questions:
+                return []
             for question in questions:
                 question['form_id'] = form_id
                 question['_id'] = ObjectId()
-
-                result = await questions_collection.insert_one(question)
-                question_ids.append(str(result.inserted_id))
-
+            result = await questions_collection.insert_many(questions)
             logger.info(f"Saved {len(questions)} questions for form {form_id}")
-            return question_ids
+            return [str(oid) for oid in result.inserted_ids]
         except Exception as e:
             logger.error(f"Error saving questions: {e}")
             raise e
@@ -42,16 +40,14 @@ class DatabaseService:
     async def save_options(self, options: List[Dict[str, Any]], form_id: str) -> List[str]:
         """Save answer options to database"""
         try:
-            option_ids = []
+            if not options:
+                return []
             for option in options:
                 option['form_id'] = form_id
                 option['_id'] = ObjectId()
-
-                result = await options_collection.insert_one(option)
-                option_ids.append(str(result.inserted_id))
-
+            result = await options_collection.insert_many(options)
             logger.info(f"Saved {len(options)} options for form {form_id}")
-            return option_ids
+            return [str(oid) for oid in result.inserted_ids]
         except Exception as e:
             logger.error(f"Error saving options: {e}")
             raise e
