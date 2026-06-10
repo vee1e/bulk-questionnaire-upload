@@ -1,5 +1,4 @@
 import { Injectable } from '@angular/core';
-// Minor comment to verify frontend-only path filtering and CI build trigger
 
 const SESSION_KEY = 'uploadState';
 const INTERRUPTED_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
