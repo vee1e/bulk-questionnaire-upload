@@ -20,12 +20,14 @@ if not MONGODB_URL:
     password = os.getenv("MONGODB_PASSWORD", "")
     host = os.getenv("MONGODB_HOST", "localhost:27017")
 
-    password_enc = quote_plus(password)
-
-    if host and "." in host:
-        MONGODB_URL = f"mongodb+srv://{user}:{password_enc}@{host}/{DATABASE_NAME}?retryWrites=true&w=majority"
+    if user or password:
+        password_enc = quote_plus(password)
+        if host and "." in host:
+            MONGODB_URL = f"mongodb+srv://{user}:{password_enc}@{host}/{DATABASE_NAME}?retryWrites=true&w=majority"
+        else:
+            MONGODB_URL = f"mongodb://{user}:{password_enc}@{host}/{DATABASE_NAME}"
     else:
-        MONGODB_URL = f"mongodb://{user}:{password_enc}@{host}/{DATABASE_NAME}"
+        MONGODB_URL = f"mongodb://{host}/{DATABASE_NAME}"
 
 async_client = AsyncIOMotorClient(MONGODB_URL, tlsCAFile=certifi.where())
 database = async_client[DATABASE_NAME]
