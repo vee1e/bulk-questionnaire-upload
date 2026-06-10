@@ -1,4 +1,4 @@
-import { Component, OnInit, Input, OnChanges, SimpleChanges, HostListener, PLATFORM_ID, inject } from '@angular/core';
+import { Component, OnInit, Input, OnChanges, SimpleChanges, HostListener, PLATFORM_ID, inject, ChangeDetectorRef } from '@angular/core';
 import { isPlatformBrowser, CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -1595,7 +1595,7 @@ export class UploadComponent implements OnInit, OnChanges {
 
   private platformId = inject(PLATFORM_ID);
 
-  constructor(private formService: FormService, private formPreviewService: FormPreviewService, private snackBar: MatSnackBar) {}
+  constructor(private formService: FormService, private formPreviewService: FormPreviewService, private snackBar: MatSnackBar, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     if (isPlatformBrowser(this.platformId)) {
@@ -1832,10 +1832,12 @@ export class UploadComponent implements OnInit, OnChanges {
       
     } catch (error) {
       console.error('Upload queue processing error:', error);
-      this.snackBar.open('Upload process encountered an error', 'Close', { 
+      this.resetUploadState();
+      this.snackBar.open('Upload process encountered an error', 'Close', {
         duration: 3000,
         panelClass: ['error-snackbar']
       });
+      this.cdr.detectChanges();
     }
   }
 
@@ -1902,6 +1904,7 @@ export class UploadComponent implements OnInit, OnChanges {
     }
 
     this.resetUploadState();
+    this.cdr.detectChanges();
     this.loadForms();
   }
 
@@ -1911,18 +1914,14 @@ export class UploadComponent implements OnInit, OnChanges {
     this.snackBar.open('Upload paused', 'Close', { duration: 2000 });
   }
 
-  async resumeUpload() {
+  resumeUpload() {
     this.uploadPaused = false;
     this.saveUploadState();
-    this.snackBar.open('Upload resumed', 'Close', { 
-      duration: 2000, 
-      verticalPosition: 'top' 
+    this.snackBar.open('Upload resumed', 'Close', {
+      duration: 2000,
+      verticalPosition: 'top'
     });
-    
-    // Continue processing from where we left off
-    if (this.isUploading && !this.uploadStopped) {
-      await this.processQueueAsync();
-    }
+    // The active processQueueAsync loop detects uploadPaused=false and continues on its own.
   }
 
   async cancelUpload() {
@@ -1940,6 +1939,7 @@ export class UploadComponent implements OnInit, OnChanges {
       }
       
       this.resetUploadState();
+      this.cdr.detectChanges();
       this.snackBar.open('Upload cancelled', 'Close', { duration: 3000 });
     }
   }
