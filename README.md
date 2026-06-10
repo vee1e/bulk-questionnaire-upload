@@ -22,18 +22,18 @@ Benchmarks are measured automatically on every push to `main` against the live R
 
 <!-- PERF_TABLE_START -->
 
-*Last measured: 2026-06-10 11:36 UTC against the live Render deployment.*
+*Last measured: 2026-06-10 20:21 UTC against the live Render deployment.*
 
 | Metric Type | Recent Performance |
 |-------------|-------------------|
-| **File Validation** | 1291–2023ms (1.291–2.023s) |
-| **Form Parsing** | 4697–5239ms (4.697–5.239s) |
-| **Form Upload** | 7788–7788ms (7.788–7.788s) |
-| **Question Processing** | 18.813ms per item |
-| **Option Processing** | 10.847ms per item |
-| **Batch Processing** | 7788–7788ms (7.788–7.788s) |
-| **Delete Operations** | 960–960ms (0.960–0.960s) |
-| **Cold Start Time** | 377ms |
+| **File Validation** | 1705–3841ms (1.705–3.841s) |
+| **Form Parsing** | 4785–5927ms (4.785–5.927s) |
+| **Form Upload** | 7750–7750ms (7.750–7.750s) |
+| **Question Processing** | 18.720ms per item |
+| **Option Processing** | 10.794ms per item |
+| **Batch Processing** | 7750–7750ms (7.750–7.750s) |
+| **Delete Operations** | 906–906ms (0.905–0.905s) |
+| **Cold Start Time** | 304ms |
 
 <!-- PERF_TABLE_END -->
 
