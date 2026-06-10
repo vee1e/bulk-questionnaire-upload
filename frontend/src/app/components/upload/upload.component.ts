@@ -7,9 +7,14 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { FormService, FormData, FormDetails, OptionData, ParsedSchema } from '../../services/form.service';
 import { FormValidation, ValidationError, ValidationWarning } from '../../models/form.model';
 import { FormPreviewService } from '../../services/form-preview.service';
+import { FormListComponent } from '../form-list/form-list.component';
+import { SchemaModalComponent } from '../schema-modal/schema-modal.component';
+import { UploadStateService } from '../../services/upload-state.service';
 
 @Component({
   selector: 'app-upload',
@@ -22,7 +27,9 @@ import { FormPreviewService } from '../../services/form-preview.service';
     MatProgressBarModule,
     MatProgressSpinnerModule,
     MatTooltipModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    FormListComponent,
+    SchemaModalComponent
   ],
   template: `
     <div *ngIf="isValidating || isUploading || isDeletingAll || isParsing" class="global-upload-progress"
@@ -285,146 +292,30 @@ import { FormPreviewService } from '../../services/form-preview.service';
         </div>
 
         <!-- Form List -->
-        <div *ngIf="filteredForms.length > 0" class="form-list">
-          <div class="form-list-header center-header">
-            <h3>Parsed Forms</h3>
-          </div>
-          <div class="delete-all-wrapper">
-            <button mat-raised-button color="warn" (click)="confirmDeleteAllForms()" [disabled]="isDeletingAll || filteredForms.length === 0">
-              <mat-icon>delete_sweep</mat-icon>
-              {{isDeletingAll ? 'Deleting...' : 'Delete All Forms'}}
-            </button>
-          </div>
-          <div *ngFor="let form of filteredForms" class="form-item"
-               [class.loading]="loadingFormId === form.id"
-               [class.previewed]="currentPreviewedFormId === form.id"
-               (click)="showFormDetails(form)">
-            <div class="form-info">
-              <mat-icon *ngIf="loadingFormId !== form.id">description</mat-icon>
-              <mat-spinner *ngIf="loadingFormId === form.id" diameter="24" class="loading-spinner"></mat-spinner>
-              <div class="form-details">
-                <h4 class="form-title" [title]="form.title">{{form.title}}</h4>
-                <p>{{form.language || 'en'}} • {{form.version || '1.0.0'}} • {{(form.created_at ? (form.created_at | date:'short') : 'Unknown')}}</p>
-              </div>
-            </div>
-
-            <div class="form-actions">
-              <button mat-icon-button (click)="exportFormAsJson(form, $event)" [disabled]="loadingFormId === form.id" style="color: white;" matTooltip="Download JSON">
-                <mat-icon style="color: white;">download</mat-icon>
-              </button>
-              <button mat-icon-button color="accent" (click)="onUpdateButtonClick(form, $event)" [disabled]="loadingFormId === form.id" matTooltip="Update Form">
-                <mat-icon>refresh</mat-icon>
-              </button>
-              <button mat-icon-button color="warn" (click)="deleteForm(form, $event)" [disabled]="loadingFormId === form.id" matTooltip="Delete Form">
-                <mat-icon>delete</mat-icon>
-              </button>
-            </div>
-          </div>
-        </div>
+        <app-form-list
+          [forms]="filteredForms"
+          [loadingFormId]="loadingFormId"
+          [isDeletingAll]="isDeletingAll"
+          [currentPreviewedFormId]="currentPreviewedFormId"
+          (formClicked)="showFormDetails($event)"
+          (deleteForm)="deleteForm($event)"
+          (exportForm)="exportFormAsJson($event)"
+          (updateForm)="onUpdateButtonClick($event)"
+          (deleteAllForms)="confirmDeleteAllForms()">
+        </app-form-list>
       </mat-card-content>
     </mat-card>
     <input type="file" accept=".xls,.xlsx" #updateFileInput id="global-update-file-input" style="display: none" (change)="onUpdateFileSelected($event)">
     
     <!-- Schema Modal -->
-    <div *ngIf="showSchemaModal" class="schema-modal-overlay" (click)="closeSchemaModal()">
-      <div class="schema-modal-content" (click)="$event.stopPropagation()">
-        <div class="schema-modal-header">
-          <h3>
-            <mat-icon class="schema-modal-icon">description</mat-icon>
-            Parsed Schema: {{selectedSchemaFileName}}
-          </h3>
-          <button mat-icon-button (click)="closeSchemaModal()" class="close-modal-btn">
-            <mat-icon>close</mat-icon>
-          </button>
-        </div>
-        
-        <div class="schema-modal-body">
-          <div class="schema-section">
-            <h4>
-              <mat-icon class="section-icon">info</mat-icon>
-              Form Information
-            </h4>
-            <div class="schema-info-grid">
-              <div class="info-item">
-                <strong>Title:</strong> 
-                <span>{{getFormTitle(selectedSchema)}}</span>
-              </div>
-              <div class="info-item">
-                <strong>Language:</strong> 
-                <span>{{getFormLanguage(selectedSchema)}}</span>
-              </div>
-              <div class="info-item">
-                <strong>Version:</strong> 
-                <span>{{getFormVersion(selectedSchema)}}</span>
-              </div>
-              <div class="info-item">
-                <strong>Questions:</strong> 
-                <span>{{getFormQuestionsCount(selectedSchema)}}</span>
-              </div>
-              <div class="info-item">
-                <strong>Options:</strong> 
-                <span>{{getFormOptionsCount(selectedSchema)}}</span>
-              </div>
-              <div class="info-item">
-                <strong>Form ID:</strong> 
-                <span>{{getFormId(selectedSchema)}}</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="schema-section" *ngIf="getFormQuestions(selectedSchema).length > 0">
-            <h4>
-              <mat-icon class="section-icon">quiz</mat-icon>
-              Questions Structure
-            </h4>
-            <div class="questions-container">
-              <div class="question-group">
-                <h5 class="group-title">Form Questions</h5>
-                <div *ngFor="let question of getFormQuestions(selectedSchema)" class="question-item">
-                  <div class="question-header">
-                    <span class="question-name">#{{question.order}}</span>
-                    <span class="question-type">Type {{question.input_type}}</span>
-                  </div>
-                  <div class="question-label">{{question.title}}</div>
-                  <div *ngIf="question.answer_option && question.answer_option.length > 0" class="question-choices">
-                    <div class="choice-header">Options:</div>
-                    <div *ngFor="let option of question.answer_option" class="choice-item">
-                      <span class="choice-name">{{option._id}}</span>
-                      <span class="choice-label">{{option.name}}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="schema-section">
-            <h4>
-              <mat-icon class="section-icon">code</mat-icon>
-              Raw JSON Schema
-            </h4>
-            <div class="json-container">
-              <pre class="json-content">{{formatJsonSchema(selectedSchema)}}</pre>
-            </div>
-          </div>
-        </div>
-
-        <div class="schema-modal-actions">
-          <button mat-raised-button color="accent" (click)="copySchemaToClipboard()">
-            <mat-icon>content_copy</mat-icon>
-            Copy JSON
-          </button>
-          <button mat-raised-button color="primary" (click)="downloadSchemaFromModal()">
-            <mat-icon>download</mat-icon>
-            Download JSON
-          </button>
-          <button mat-raised-button (click)="closeSchemaModal()">
-            <mat-icon>close</mat-icon>
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
+    <app-schema-modal
+      [schema]="selectedSchema"
+      [fileName]="selectedSchemaFileName"
+      [visible]="showSchemaModal"
+      (closed)="closeSchemaModal()"
+      (copied)="copySchemaToClipboard()"
+      (downloaded)="downloadSchemaFromModal()">
+    </app-schema-modal>
   `,
   styles: [`
     .upload-card {
@@ -1580,7 +1471,7 @@ export class UploadComponent implements OnInit, OnChanges {
   currentUploadIndex = 0;
   
   // Async upload control
-  private uploadController: AbortController | null = null;
+  private cancelSubject$ = new Subject<void>();
   private activeUploads = new Set<Promise<any>>();
   private maxConcurrentUploads = 3;
   
@@ -1594,6 +1485,7 @@ export class UploadComponent implements OnInit, OnChanges {
   updateTargetForm: FormData | null = null;
 
   private platformId = inject(PLATFORM_ID);
+  private uploadStateService = inject(UploadStateService);
 
   constructor(private formService: FormService, private formPreviewService: FormPreviewService, private snackBar: MatSnackBar, private cdr: ChangeDetectorRef) {}
 
@@ -1736,52 +1628,12 @@ export class UploadComponent implements OnInit, OnChanges {
     this.currentUploadIndex = 0;
     this.uploadProgress = { current: 0, total: this.selectedFiles.length };
     
-    // Create new abort controller for this upload session
-    this.uploadController = new AbortController();
+    // Reset cancellation subject for this upload session
+    this.cancelSubject$ = new Subject<void>();
     this.activeUploads.clear();
     
     this.saveUploadState();
     await this.processQueueAsync();
-  }
-
-  private processNextFile() {
-    if (this.uploadPaused || this.currentUploadIndex >= this.uploadQueue.length) {
-      if (this.currentUploadIndex >= this.uploadQueue.length) {
-        this.completeUpload();
-      }
-      this.saveUploadState();
-      return;
-    }
-
-    const file = this.uploadQueue[this.currentUploadIndex];
-    this.formService.uploadSingleFile(file).subscribe({
-      next: (result: any) => {
-        this.processedFiles.push(file.name);
-        this.currentUploadIndex++;
-        this.uploadProgress.current = this.currentUploadIndex;
-        this.saveUploadState();
-        
-        if (!result.error) {
-          this.snackBar.open(`Successfully processed ${file.name}`, 'Close', { 
-            duration: 2000, 
-            verticalPosition: 'top' 
-          });
-        } else {
-          this.snackBar.open(`Failed to process ${file.name}`, 'Close', { duration: 3000 });
-        }
-        
-        setTimeout(() => this.processNextFile(), 500);
-      },
-      error: (error: any) => {
-        console.error(`Upload failed for ${file.name}:`, error);
-        this.snackBar.open(`Upload failed for ${file.name}`, 'Close', { duration: 3000 });
-        this.currentUploadIndex++;
-        this.uploadProgress.current = this.currentUploadIndex;
-        this.saveUploadState();
-        
-        setTimeout(() => this.processNextFile(), 500);
-      }
-    });
   }
 
   private async processQueueAsync() {
@@ -1842,41 +1694,38 @@ export class UploadComponent implements OnInit, OnChanges {
   }
 
   private async uploadSingleFileAsync(file: File, index: number): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (this.uploadController?.signal.aborted) {
-        reject(new Error('Upload cancelled'));
-        return;
-      }
-
-      this.formService.uploadSingleFile(file).subscribe({
+    return new Promise<void>((resolve) => {
+      let handled = false;
+      this.formService.uploadSingleFile(file).pipe(takeUntil(this.cancelSubject$)).subscribe({
         next: (result: any) => {
+          handled = true;
           if (!this.uploadStopped) {
             this.processedFiles.push(file.name);
             this.uploadProgress.current = this.processedFiles.length;
-            
+
             if (!result.error) {
-              this.snackBar.open(`Successfully processed ${file.name}`, 'Close', { 
-                duration: 2000, 
-                verticalPosition: 'top' 
+              this.snackBar.open(`Successfully processed ${file.name}`, 'Close', {
+                duration: 2000,
+                verticalPosition: 'top'
               });
             } else {
               this.snackBar.open(`Failed to process ${file.name}`, 'Close', { duration: 3000 });
             }
-            
+
             this.saveUploadState();
           }
-          resolve();
         },
         error: (error: any) => {
           console.error(`Failed to upload ${file.name}:`, error);
           if (!this.uploadStopped) {
-            this.snackBar.open(`Failed to upload ${file.name}`, 'Close', { 
+            this.snackBar.open(`Failed to upload ${file.name}`, 'Close', {
               duration: 3000,
               panelClass: ['error-snackbar']
             });
           }
-          resolve(); // Resolve even on error to continue with other files
-        }
+          resolve();
+        },
+        complete: () => resolve() // handles both normal completion and takeUntil cancellation
       });
     });
   }
@@ -1927,17 +1776,15 @@ export class UploadComponent implements OnInit, OnChanges {
   async cancelUpload() {
     if (confirm('Are you sure you want to cancel the upload? Progress will be lost.')) {
       this.uploadStopped = true;
-      
-      // Abort any ongoing HTTP requests
-      if (this.uploadController) {
-        this.uploadController.abort();
-      }
-      
+
+      // Cancel all in-flight HTTP requests via RxJS takeUntil
+      this.cancelSubject$.next();
+
       // Wait for active uploads to complete/cancel
       if (this.activeUploads.size > 0) {
         await Promise.allSettled([...this.activeUploads]);
       }
-      
+
       this.resetUploadState();
       this.cdr.detectChanges();
       this.snackBar.open('Upload cancelled', 'Close', { duration: 3000 });
@@ -1956,84 +1803,42 @@ export class UploadComponent implements OnInit, OnChanges {
     this.allValid = false;
     this.uploadProgress = { current: 0, total: 0 };
     
-    // Clean up async resources
-    if (this.uploadController) {
-      this.uploadController.abort();
-      this.uploadController = null;
-    }
+    // Cancel any in-flight requests and reset the subject for the next session
+    this.cancelSubject$.next();
+    this.cancelSubject$ = new Subject<void>();
     this.activeUploads.clear();
     
     this.clearUploadSession();
   }
 
   private saveUploadState() {
-    if (typeof window === 'undefined' || !window.sessionStorage) {
-      return;
-    }
-    
-    if (this.isUploading || this.uploadPaused) {
-      const state = {
-        isUploading: this.isUploading,
-        uploadPaused: this.uploadPaused,
-        uploadStopped: this.uploadStopped,
-        uploadQueue: this.uploadQueue.map(file => ({
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          lastModified: file.lastModified
-        })),
-        processedFiles: this.processedFiles,
-        currentUploadIndex: this.currentUploadIndex,
-        uploadProgress: this.uploadProgress,
-        validationResults: this.validationResults,
-        allValid: this.allValid,
-        timestamp: Date.now()
-      };
-      sessionStorage.setItem('uploadState', JSON.stringify(state));
-    }
+    this.uploadStateService.saveUploadState({
+      isUploading: this.isUploading,
+      uploadPaused: this.uploadPaused,
+      uploadStopped: this.uploadStopped,
+      uploadQueue: this.uploadQueue.map(file => ({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        lastModified: file.lastModified
+      })),
+      processedFiles: this.processedFiles,
+      currentUploadIndex: this.currentUploadIndex,
+      uploadProgress: this.uploadProgress,
+      validationResults: this.validationResults,
+      allValid: this.allValid
+    });
   }
 
   private restoreUploadState() {
-    if (typeof window === 'undefined' || !window.sessionStorage) {
-      return;
-    }
-    
-    const savedState = sessionStorage.getItem('uploadState');
-    if (savedState) {
-      try {
-        const state = JSON.parse(savedState);
-        const timeDiff = Date.now() - state.timestamp;
-        
-        if (timeDiff < 30 * 60 * 1000) {
-          this.isUploading = state.isUploading;
-          this.uploadPaused = state.uploadPaused;
-          this.processedFiles = state.processedFiles || [];
-          this.currentUploadIndex = state.currentUploadIndex || 0;
-          this.uploadProgress = state.uploadProgress || { current: 0, total: 0 };
-          this.validationResults = state.validationResults || {};
-          this.allValid = state.allValid || false;
-          
-          if (this.isUploading || this.uploadPaused) {
-            this.snackBar.open('📋 Previous upload session restored. You can resume or cancel.', 'Close', { 
-              duration: 5000,
-              panelClass: ['custom-snackbar']
-            });
-          }
-        } else {
-          this.clearUploadSession();
-        }
-      } catch (error) {
-        console.error('Failed to restore upload state:', error);
-        this.clearUploadSession();
-      }
+    const message = this.uploadStateService.checkInterruptedUpload();
+    if (message) {
+      this.snackBar.open(message, 'Close', { duration: 6000 });
     }
   }
 
   private clearUploadSession() {
-    if (typeof window === 'undefined' || !window.sessionStorage) {
-      return;
-    }
-    sessionStorage.removeItem('uploadState');
+    this.uploadStateService.clearUploadSession();
   }
 
   getFileUploadStatus(fileName: string, index: number): string {
@@ -2076,8 +1881,8 @@ export class UploadComponent implements OnInit, OnChanges {
     }
   }
 
-  deleteForm(form: FormData, event: Event): void {
-    event.stopPropagation();
+  deleteForm(form: FormData, event?: Event): void {
+    if (event) event.stopPropagation();
     if (confirm(`Are you sure you want to delete "${form.title}"?`)) {
       this.formService.deleteForm(form.id).subscribe({
         next: () => {
@@ -2090,8 +1895,8 @@ export class UploadComponent implements OnInit, OnChanges {
     }
   }
 
-  exportFormAsJson(form: FormData, event: Event): void {
-    event.stopPropagation();
+  exportFormAsJson(form: FormData, event?: Event): void {
+    if (event) event.stopPropagation();
     this.formService.getFormById(form.id).subscribe({
       next: (details) => {
         const json = JSON.stringify(details, null, 2);
@@ -2129,31 +1934,21 @@ export class UploadComponent implements OnInit, OnChanges {
     });
   }
 
-  async deleteAllForms() {
+  deleteAllForms() {
     if (this.isDeletingAll || this.parsedForms.length === 0) return;
     this.isDeletingAll = true;
     this.deleteProgress = { current: 0, total: this.parsedForms.length };
-    let deleted = 0;
-    const deleteNext = (index: number) => {
-      if (index >= this.parsedForms.length) {
+    this.formService.deleteAllForms().subscribe({
+      next: () => {
+        this.deleteProgress.current = this.parsedForms.length;
         this.isDeletingAll = false;
         this.loadForms();
-        return;
+      },
+      error: () => {
+        this.isDeletingAll = false;
+        this.snackBar.open('Failed to delete all forms', 'Close', { duration: 3000 });
       }
-      this.formService.deleteForm(this.parsedForms[index].id).subscribe({
-        next: () => {
-          deleted++;
-          this.deleteProgress.current = deleted;
-          deleteNext(index + 1);
-        },
-        error: () => {
-          deleted++;
-          this.deleteProgress.current = deleted;
-          deleteNext(index + 1);
-        }
-      });
-    };
-    deleteNext(0);
+    });
   }
 
   confirmDeleteAllForms() {
@@ -2195,8 +1990,8 @@ export class UploadComponent implements OnInit, OnChanges {
     return labels[type] || type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
   }
 
-  onUpdateButtonClick(form: FormData, event: Event): void {
-    event.stopPropagation();
+  onUpdateButtonClick(form: FormData, event?: Event): void {
+    if (event) event.stopPropagation();
     this.updateTargetForm = form;
     const input = document.getElementById('global-update-file-input') as HTMLInputElement;
     if (input) {

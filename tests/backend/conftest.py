@@ -1,6 +1,5 @@
 import os
 import sys
-import pytest
 import pytest_asyncio
 import httpx
 
@@ -42,5 +41,25 @@ async def mock_db_services(monkeypatch):
         
         async def get_options_by_form_id(self, form_id: str):
             return []
+
+        async def save_form(self, form_data):
+            return "507f1f77bcf86cd799439011"
+
+        async def save_questions(self, questions, form_id):
+            return []
+
+        async def save_options(self, options, form_id):
+            return []
+
+        async def delete_form(self, form_id):
+            return True
+
+        async def delete_all_forms(self):
+            return {"forms": 1, "questions": 1, "options": 1}
+
+        async def update_form(self, form_id, form_data, questions, options):
+            return True
     
     monkeypatch.setattr(main, 'db_service', MockDatabaseService())
+    import services.xlsform_parser
+    monkeypatch.setattr(services.xlsform_parser, 'DatabaseService', MockDatabaseService)

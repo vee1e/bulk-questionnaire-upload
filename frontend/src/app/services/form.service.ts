@@ -81,8 +81,10 @@ export class FormService {
 
     uploadFile(file: File): Observable<FormDetails> {
         const formData = new FormData();
-        formData.append('file', file);
-        return this.http.post<FormDetails>(`${this.apiUrl}/upload`, formData);
+        formData.append('files', file);
+        return this.http.post<any[]>(`${this.apiUrl}/upload`, formData).pipe(
+            map((results: any[]) => results[0])
+        );
     }
 
     uploadSingleFile(file: File): Observable<any> {

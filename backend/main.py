@@ -4,14 +4,14 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from services.xlsform_parser import XLSFormParser
 from services.database_service import DatabaseService
-from models.form import FormValidation, ParsedForm
+from models.form import FormValidation
 from database import connect_to_mongo, close_mongo_connection
+from utils import log_metric
 import logging
 import asyncio
 from typing import List, Optional
 import time
 import os
-from fastapi.responses import JSONResponse
 import pandas as pd
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -124,15 +124,6 @@ def _parse_error_detail(error_message: str, filename: str) -> dict:
 
 # ---------------------------------------------------------------------------
 db_service = DatabaseService()
-
-METRICS_FILE = os.path.join(os.path.dirname(__file__), "metrics.txt")
-
-
-def log_metric(metric_name: str, value) -> None:
-    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-    with open(METRICS_FILE, "a") as f:
-        f.write(f"[{timestamp}] {metric_name}: {value}\n")
-
 
 startup_time: Optional[float] = None
 
@@ -259,7 +250,7 @@ async def parse_file(request: Request):
         raise HTTPException(status_code=400, detail=_parse_error_detail(error_message, filename))
 
 
-@app.post("/api/upload", response_model=List[ParsedForm])
+@app.post("/api/upload")
 @limiter.limit("30/minute")
 async def upload_files(request: Request, files: List[UploadFile] = File(...)):
     """Parse and save multiple uploaded XLSForm files concurrently."""
@@ -334,6 +325,22 @@ async def update_form(request: Request, form_id: str, file: UploadFile = File(..
     await _check_file_size(file, file.filename)
     try:
         parser = XLSFormParser()
+
+        # Validate before touching the database
+        validation_result = await parser.validate_file(file)
+        if not validation_result["valid"]:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "Validation failed",
+                    "message": validation_result.get("message", "File validation failed"),
+                    "error_type": "VALIDATION_ERROR",
+                    "errors": validation_result.get("errors", []),
+                    "warnings": validation_result.get("warnings", []),
+                },
+            )
+
+        # validate_file seeks back to 0 in its finally block; re-read for parsing
         df_dict = pd.read_excel(file.file, sheet_name=None)
         form_metadata = parser._parse_form_metadata(df_dict["Forms"])
         questions_data = parser._parse_questions_data(df_dict["Questions Info"])
@@ -382,19 +389,13 @@ async def delete_all_forms(request: Request):
     """Delete all forms and all related data."""
     start = time.time()
     try:
-        forms = await db_service.get_all_forms()
-        questions_count = 0
-        options_count = 0
-        for form in forms:
-            questions_count += len(await db_service.get_questions_by_form_id(form["id"]))
-            options_count += len(await db_service.get_options_by_form_id(form["id"]))
-        success = await db_service.delete_all_forms()
-        log_metric("delete_all_forms_time", time.time() - start)
-        log_metric("deleted_forms", len(forms))
-        log_metric("deleted_questions", questions_count)
-        log_metric("deleted_options", options_count)
-        if not success:
+        counts = await db_service.delete_all_forms()
+        if not counts:
             raise HTTPException(status_code=500, detail="Failed to delete all forms.")
+        log_metric("delete_all_forms_time", time.time() - start)
+        log_metric("deleted_forms", counts.get("forms", 0))
+        log_metric("deleted_questions", counts.get("questions", 0))
+        log_metric("deleted_options", counts.get("options", 0))
         return {"message": "All forms deleted successfully"}
     except HTTPException:
         raise
