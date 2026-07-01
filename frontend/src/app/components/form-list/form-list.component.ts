@@ -83,9 +83,9 @@ import { FormData } from '../../services/form.service';
     }
 
     .delete-all-wrapper {
-      padding: 0.5rem 1rem 0.5rem 1rem;
+      padding: 0.5rem 1rem 1.25rem 1rem;
       display: flex;
-      justify-content: flex-end;
+      justify-content: center;
     }
 
     .form-item {
@@ -160,6 +160,27 @@ import { FormData } from '../../services/form.service';
         align-items: center;
         gap: 0.25rem;
         flex-shrink: 0;
+
+        ::ng-deep .mat-mdc-icon-button {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 40px;
+          height: 40px;
+          padding: 0;
+          line-height: 1;
+
+          .mat-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            font-size: 24px;
+            line-height: 1;
+            margin: 0;
+          }
+        }
       }
     }
   `]

@@ -25,13 +25,18 @@ import { Subscription } from 'rxjs';
 
       <div class="navbar-actions" *ngIf="selectedFormDetails">
         <div class="keyboard-shortcuts">
-          <span class="shortcut-hint">Ctrl+J/K: forms • Ctrl+Shift+J/K: questions • Esc: exit</span>
+          <span class="shortcut-hint">Shift+J/K: forms • Ctrl+Shift+J/K: questions • Esc: exit</span>
         </div>
         <button mat-icon-button (click)="closePreview()" class="close-preview-btn">
           <mat-icon>close</mat-icon>
         </button>
       </div>
     </mat-toolbar>
+
+    <!-- Backdrop to block background interaction when preview is open -->
+    <div class="form-preview-backdrop"
+         *ngIf="selectedFormDetails"
+         (click)="closePreview()"></div>
 
     <!-- Form Preview Panel -->
     <div class="form-preview-panel"
@@ -109,21 +114,30 @@ import { Subscription } from 'rxjs';
       z-index: 1000;
       position: relative;
       display: flex;
-      justify-content: space-between;
+      justify-content: flex-end;
       align-items: center;
       border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 0 1rem;
     }
 
     .navbar-brand {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      bottom: 0;
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 0.5rem;
       font-size: 1.2rem;
       font-weight: 500;
+      pointer-events: none;
     }
 
-    .center-navbar { justify-content: center; width: 100%; display: flex; }
-    .navbar { justify-content: center; }
+    .center-navbar {
+      display: flex;
+    }
 
     .brand-icon {
       font-size: 24px;
@@ -136,6 +150,8 @@ import { Subscription } from 'rxjs';
       display: flex;
       align-items: center;
       gap: 1rem;
+      position: relative;
+      z-index: 2;
     }
 
     .keyboard-shortcuts {
@@ -153,10 +169,44 @@ import { Subscription } from 'rxjs';
     .close-preview-btn {
       background: rgba(255, 255, 255, 0.1);
       color: #ffffff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      line-height: 1;
+
+      ::ng-deep .mat-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        font-size: 24px;
+        line-height: 1;
+        margin: 0;
+      }
 
       &:hover {
         background: rgba(255, 255, 255, 0.2);
       }
+    }
+
+    .form-preview-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(6px);
+      z-index: 998;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
     }
 
     .form-preview-panel {

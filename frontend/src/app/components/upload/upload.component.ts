@@ -1165,11 +1165,11 @@ export class UploadComponent implements OnInit, OnChanges {
 
   @HostListener('document:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent): void {
-    if (event.ctrlKey || event.metaKey) {
-      if (event.key === 'j') {
+    if (event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      if (event.key === 'j' || event.key === 'J') {
         event.preventDefault();
         this.navigateToNextForm();
-      } else if (event.key === 'k') {
+      } else if (event.key === 'k' || event.key === 'K') {
         event.preventDefault();
         this.navigateToPreviousForm();
       }

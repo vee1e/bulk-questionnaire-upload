@@ -21,7 +21,7 @@ import { MatIconModule } from '@angular/material/icon';
         <mat-icon matPrefix>search</mat-icon>
         <input #searchInput
                matInput
-               placeholder="Search forms... (Shift+K)"
+               placeholder="Search forms... (Ctrl/⌘+K)"
                [(ngModel)]="searchQuery"
                (input)="onSearch()">
       </mat-form-field>
@@ -190,8 +190,13 @@ export class SearchComponent implements OnInit, OnDestroy {
 
   @HostListener('window:keydown', ['$event'])
   handleKeyboardShortcut(event: KeyboardEvent) {
-    // Check for Shift+K
-    if (event.shiftKey && event.key.toLowerCase() === 'k') {
+    // Check for Ctrl/Cmd + K (without Shift)
+    if (
+      (event.ctrlKey || event.metaKey) &&
+      !event.shiftKey &&
+      !event.altKey &&
+      event.key.toLowerCase() === 'k'
+    ) {
       event.preventDefault();
       this.focusSearch();
     }
