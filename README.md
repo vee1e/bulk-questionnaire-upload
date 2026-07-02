@@ -9,11 +9,11 @@ Upload, validate, and manage Excel-based questionnaires through a modern web UI.
 
 | Upload & Validate|
 |:-----------------:|
-| <img width="2896" height="1802" alt="image" src="https://github.com/user-attachments/assets/631775e7-d9be-428f-8116-dac9dcc8ac81" />|
+| <img width="2896" height="1802" alt="image" src="https://github.com/user-attachments/assets/631775e7-d9be-428f-8116-dac9dcc8ac81" /> |
 | Form Parse with Errors |
 | <img width="2896" height="1802" alt="image" src="https://github.com/user-attachments/assets/d7b59f33-5afe-43ef-b55f-93ae9bc4891a" /> |
 | Form Parse Successful |
-| <img width="2896" height="1802" alt="image" src="https://github.com/user-attachments/assets/a4bf74ab-0a8c-46cc-8379-5c9e769c5565" /> |
+| <img width="1457" height="906" alt="image" src="https://github.com/user-attachments/assets/ae9cb552-7671-4029-9724-334f7588e1d7" />  |
 
 
 ## Performance
