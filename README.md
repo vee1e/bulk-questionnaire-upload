@@ -22,18 +22,18 @@ Benchmarks are measured automatically on every push to `main` against the live V
 
 <!-- PERF_TABLE_START -->
 
-*Last measured: 2026-08-31 22:03 UTC against the live VPS deployment.*
+*Last measured: 2026-08-31 22:12 UTC against the live Render deployment.*
 
 | Metric Type | Recent Performance |
 |-------------|-------------------|
-| **File Validation** | 1228–3090ms (1.228–3.090s) |
-| **Form Parsing** | 4511–5094ms (4.511–5.094s) |
-| **Form Upload** | 6553–6553ms (6.553–6.553s) |
-| **Question Processing** | 15.828ms per item |
-| **Option Processing** | 9.127ms per item |
-| **Batch Processing** | 6553–6553ms (6.553–6.553s) |
-| **Delete Operations** | 932–932ms (0.932–0.932s) |
-| **Cold Start Time** | 285ms |
+| **File Validation** | 2142–3228ms (2.142–3.228s) |
+| **Form Parsing** | 6833–8813ms (6.833–8.813s) |
+| **Form Upload** | 9718–9718ms (9.718–9.718s) |
+| **Question Processing** | 23.473ms per item |
+| **Option Processing** | 13.535ms per item |
+| **Batch Processing** | 9718–9718ms (9.718–9.718s) |
+| **Delete Operations** | 1089–1089ms (1.089–1.089s) |
+| **Cold Start Time** | 830ms |
 
 <!-- PERF_TABLE_END -->
 
