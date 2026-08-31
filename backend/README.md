@@ -1,6 +1,6 @@
 # Backend
 
-FastAPI service that validates, parses, and stores XLSForm-compatible Excel files. Deployed on Render.
+FastAPI service that validates, parses, and stores XLSForm-compatible Excel files. Deployed on VPS.
 
 ## Local Setup
 
@@ -133,7 +133,7 @@ Indexes: `forms.created_at desc`, `questions.form_id`, `options.{form_id, order}
 pytest tests/backend -q
 
 # Against live deployment (saves perf_results.json)
-BACKEND_URL=https://bulk-questionnaire-upload.onrender.com python scripts/measure_perf.py
+BACKEND_URL=https://bulk-api.lverma.com python scripts/measure_perf.py
 ```
 
 Test fixtures: `tests/test_xlsforms_valid/` (10 valid files) · `tests/test_xlsforms_incorrect/` (error scenarios).

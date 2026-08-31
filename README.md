@@ -3,7 +3,7 @@
 Upload, validate, and manage Excel-based questionnaires through a modern web UI. XLSForm-compatible three-sheet format (Forms / Questions Info / Answer Options), parsed into a mobile-app-ready JSON schema and stored in MongoDB.
 
 - Live at [bulkforms.lverma.com](https://bulkforms.lverma.com/)
-- API at [bulk-questionnaire-upload.onrender.com](https://bulk-questionnaire-upload.onrender.com/docs)
+- API at [bulk-api.lverma.com](https://bulk-api.lverma.com/docs)
 
 ## Screenshots
 
@@ -18,11 +18,11 @@ Upload, validate, and manage Excel-based questionnaires through a modern web UI.
 
 ## Performance
 
-Benchmarks are measured automatically on every push to `main` against the live Render deployment.
+Benchmarks are measured automatically on every push to `main` against the live VPS deployment.
 
 <!-- PERF_TABLE_START -->
 
-*Last measured: 2026-08-31 22:03 UTC against the live Render deployment.*
+*Last measured: 2026-08-31 22:03 UTC against the live VPS deployment.*
 
 | Metric Type | Recent Performance |
 |-------------|-------------------|
@@ -44,7 +44,7 @@ Benchmarks are measured automatically on every push to `main` against the live R
 | Frontend | Angular 19, Angular Material, SSR |
 | Backend | FastAPI, Uvicorn, Pandas, Motor |
 | Database | MongoDB Atlas |
-| Deploy | Vercel (frontend) · Render (backend) |
+| Deploy | Vercel (frontend) · VPS (backend) |
 | CI | GitHub Actions - tests + live perf benchmarks |
 
 See [`backend/README.md`](backend/README.md) for API reference, file format specs, and local setup.

@@ -33,7 +33,7 @@ jobs:
 
       - name: Measure deployed performance
         env:
-          BACKEND_URL: https://bulk-questionnaire-upload.onrender.com
+          BACKEND_URL: https://bulk-api.lverma.com
         run: python scripts/measure_perf.py
 
       - name: Update README metrics table

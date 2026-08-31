@@ -17,7 +17,7 @@ App: http://localhost:4200 (expects backend at http://localhost:8000)
 API URL is loaded at startup from `public/assets/config.json` so no rebuild is needed to point at a different backend:
 
 ```json
-{ "API_URL": "https://your-backend.onrender.com/api" }
+{ "API_URL": "https://bulk-api.lverma.com/api" }
 ```
 
 Falls back to `http://localhost:8000/api` if the file is missing.
